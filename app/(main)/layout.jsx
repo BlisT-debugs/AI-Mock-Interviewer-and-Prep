@@ -5,7 +5,7 @@ function DashboardLayout({ children }) {
   return (
     <div>
       <AppHeader />
-      <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-70 py-10'>
+      <div className='p-10 mt-14 md:px-20 lg:px-40 xl:px-60 2xl:px-80'>
       {children}
       </div>
     </div>

@@ -12,13 +12,34 @@ import { Textarea } from '@/components/ui/textarea'
 import Image from 'next/image'
 import { Experts } from '@/services/Options'
 import { Button } from '@/components/ui/button'
+import { useMutation } from 'convex/react'
+import { api } from '@/convex/_generated/api'
+import { LoaderCircle } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 function UserInputDialog({children,options}) {
     const [selectedExpert,setSelectedExpert]=useState();
     const [Topic,setTopic]=useState();
+    const createDiscussionRoom=useMutation(api.DiscussionRoom.CreateRoom);
+    const [loading,setloading]=useState(false);
+    const [openDialog,setOpenDialog]=useState(false);
+    const router=useRouter();
+
+    const onClickNext= async()=>{
+      setloading(true);
+      const result=await createDiscussionRoom({
+        Topic: Topic,
+        Option: options?.name,
+        Assistant:selectedExpert
+      })
+      console.log(result)
+      setloading(false);
+      setOpenDialog(false);
+      router.push('/DiscussionRoom/'+result)
+    }
   return (
     <div>
-      <Dialog>
+      <Dialog open={openDialog} onOpenChange={setOpenDialog}>
   <DialogTrigger>{children}</DialogTrigger>
   <DialogContent className={'bg-sky-100'}>
     <DialogHeader>
@@ -45,7 +66,10 @@ function UserInputDialog({children,options}) {
                 <DialogClose asChild>
                     <Button variant={'ghost'}>Cancel</Button>
                 </DialogClose>
-                <Button disabled={(!Topic || !selectedExpert)} >Lets Go</Button>
+                <Button disabled={(!Topic || !selectedExpert || loading )} onClick={onClickNext}>
+                  {loading&&<LoaderCircle className='animate-pulse'/> }
+                  Lets Go
+                  </Button>
               </div>
         </div>
       </DialogDescription>

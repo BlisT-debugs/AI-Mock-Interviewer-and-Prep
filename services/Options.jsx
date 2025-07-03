@@ -27,25 +27,25 @@ export const Experts = [
   {
     name: 'Rohan',
     avatar: '/Rohan.jpg',
-    voice: 'male',
+    voiceId: 'UgBBYS2sOqTuMpoF3BR0', // Matching voice ID from ElevenLabs
     bio: 'Technical Interview Specialist'
   },
   {
     name: 'Tina',
     avatar: '/Tina.jpg',
-    voice: 'female',
+    voiceId: '2qfp6zPuviqeCOZIE9RZ',
     bio: 'Language Proficiency Coach'
   },
   {
     name: 'Larry',
     avatar: '/Larry.jpg',
-    voice: 'male',
+    voiceId: 'bIHbv24MWmeRgasZH58o',
     bio: 'Subject Matter Expert'
   },
   {
     name: 'Lucy',
     avatar: '/Lucy.jpg',
-    voice: 'female',
+    voiceId: 'kdmDKE6EkgrWrrykO9Qt',
     bio: 'Q&A Session Moderator'
   }
 ]

@@ -26,3 +26,15 @@ export const GetRoom = query({
         return res; 
     }
 })
+
+export const Convo=mutation({
+    args:{
+        id:v.id('DisscussionRoom'),
+        conversation:v.any()
+    },
+    handler:async(ctx,args)=>{
+        awaitctx.db.patch(args.id,{
+            conversation:args.conversation
+        })
+    }
+})

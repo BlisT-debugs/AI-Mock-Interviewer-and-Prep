@@ -10,6 +10,16 @@ export default defineSchema({
         Option: v.string(),
         Topic: v.string(),
         Assistant: v.string(),
-        Conversation: v.optional(v.any())
-    })
+        conversation: v.optional(v.any()),
+        userId: v.union(v.string(), v.null()),        
+        completed: v.optional(v.boolean()),    
+        lastUpdated: v.optional(v.number())
+    }),
+    UserLectures: defineTable({
+    userId: v.string(),
+    roomId: v.id('DiscussionRoom'),
+    completedAt: v.number(),
+    topic: v.string(),
+    assistant: v.string(),
+  }).index('by_user', ['userId']),
 })

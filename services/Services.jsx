@@ -104,7 +104,7 @@ export const AI_Model = async (topic, option, msg, conversationHistory = []) => 
             const lowerTopic = topic.toLowerCase();
             
             if (!lowerResponse.includes(lowerTopic)) {
-              return `I specialize in ${topic}. Let's focus on that.`;
+              return `I specialize in ${topic}Let's focus on that.`;
             }
 
             console.log(`AI (${model}) responded in ${Date.now() - startTime}ms`);
@@ -154,7 +154,6 @@ const playAudioBuffer = (arrayBuffer) => {
 };
 
 export const speakText = async (text, voiceId = null) => {
-  console.log("speakText Running")
   try {
     const apiKey = process.env.NEXT_PUBLIC_ELEVENAI_API_KEY;
     if (!apiKey) {
@@ -178,7 +177,6 @@ export const speakText = async (text, voiceId = null) => {
 
     console.log(" Got buffer of", buffer.byteLength, "bytes");
     await playAudioBuffer(buffer);
-    console.log(" Audio should be playing now");
   } catch (error) {
     console.error(' speakText error:', error);
   }

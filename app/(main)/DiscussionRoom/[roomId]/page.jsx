@@ -1,120 +1,214 @@
 "use client";
-import { Button } from '@/components/ui/button';
-import { api } from '@/convex/_generated/api';
-import { Experts } from '@/services/Options';
-import { useQuery } from 'convex/react';
-import Image from 'next/image';
-import { useParams } from 'next/navigation';
-import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { AI_Model, speakText } from '@/services/Services';
-import { 
-  checkMicrophonePermission, 
-  createSpeechRecognition, 
-  mapRecognitionError 
-} from '@/services/speechUtils';
+import { Button } from "@/components/ui/button";
+import { api } from "@/convex/_generated/api";
+import { Experts } from "@/services/Options";
+import { useQuery, useMutation } from "convex/react";
+import Image from "next/image";
+import { useParams, useRouter } from "next/navigation";
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import { AI_Model, speakText } from "@/services/Services";
+import {
+  checkMicrophonePermission,
+  createSpeechRecognition,
+  mapRecognitionError,
+} from "@/services/speechUtils";
+import { useUser, ClerkProvider } from "@clerk/nextjs";
 
-function DiscussionRoom() {
+function DiscussionRoomContent() {
+  const router = useRouter();
+  const { isLoaded, user } = useUser();
   const { roomId } = useParams();
+  const updateConversation = useMutation(api.DiscussionRoom.UpdateConversation);
   const RoomData = useQuery(api.DiscussionRoom.GetRoom, { id: roomId });
+
   const [expert, setExpert] = useState(null);
-  const [transcript, setTranscript] = useState('');
+  const [transcript, setTranscript] = useState("");
   const [recognitionError, setRecognitionError] = useState(null);
   const [conversation, setConversation] = useState([]);
   const [isAiResponding, setIsAiResponding] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [rateLimitError, setRateLimitError] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
-  const recognitionRef = useRef(null);
-  const conversationContainerRef = useRef(null);
-  const silenceTimerRef = useRef(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  
-  // Auto-scroll conversation
-  useEffect(() => {
-    if (conversationContainerRef.current) {
-      conversationContainerRef.current.scrollTop = conversationContainerRef.current.scrollHeight;
-    }
-  }, [conversation]);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Set expert and welcome message
-  useEffect(() => {
-    if (RoomData && !expert) {
-      const foundExpert = Experts.find(item => item.name === RoomData.Assistant);
-      if (foundExpert) {
-        setExpert(foundExpert);
-        const welcomeMessage = `Hello! I'm ${foundExpert.name}, your ${RoomData.Option} assistant. How can I help you with ${RoomData.Topic} today?`;
-        setConversation([{ role: 'assistant', content: welcomeMessage }]);
-        
-        if (isConnected) {
-          speakResponse(welcomeMessage).catch(err => 
-            console.error('Failed to speak welcome:', err)
-          );
-        }
+  const recognitionRef = useRef(null);
+  const silenceTimerRef = useRef(null);
+  const conversationContainerRef = useRef(null);
+  const currentMessageRef = useRef("");
+
+  const stopRecording = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+    clearTimeout(silenceTimerRef.current);
+    setIsRecording(false);
+  }, []);
+
+  const saveConversation = useCallback(
+    async (completed = false) => {
+      if (!roomId || conversation.length === 0) return;
+      setIsSaving(true);
+      try {
+        await updateConversation({
+          id: roomId,
+          conversation,
+          completed,
+          lastUpdated: Date.now(),
+        });
+        console.log("Conversation saved");
+      } catch (err) {
+        console.error("Save error", err);
+      } finally {
+        setIsSaving(false);
       }
-    }
-  }, [RoomData, expert, isConnected]);
+    },
+    [roomId, conversation, updateConversation]
+  );
 
-  // Speech synthesis
-  const speakResponse = useCallback(async (text) => {
+  const speakResponse = useCallback(
+  async (text) => {
     if (!text || isSpeaking || !expert?.voiceId) return;
-    
     setIsSpeaking(true);
     try {
-      await speakText(text, expert.voiceId);
-    } catch (error) {
-      console.error('Speech error:', error);
+      const chunks = text.match(/[^.!?]+[.!?]+/g) || [text];
+
+      for (const chunk of chunks) {
+        await speakText(chunk, expert.voiceId); // serialize speech
+      }
+    } catch (e) {
+      console.error("speakText error:", e);
     } finally {
       setIsSpeaking(false);
     }
-  }, [expert?.voiceId, isSpeaking]);
+  },
+  [expert?.voiceId, isSpeaking]
+);
 
-  // Handle AI responses
-  const handleAIResponse = useCallback(async (userMessage) => {
-    if (!userMessage.trim() || !RoomData?.Topic || !RoomData?.Option || isAiResponding) return;
-    
-    setIsAiResponding(true);
-    setRateLimitError(null);
-    try {
-      setConversation(prev => [...prev, { role: 'user', content: userMessage }]);
-      setConversation(prev => [...prev, { role: 'assistant', content: '...' }]);
-      
-      const aiResponse = await AI_Model(
-        RoomData.Topic, 
-        RoomData.Option, 
-        userMessage,
-        conversation.filter(msg => msg.role !== 'system')
-      );
-      
-      setConversation(prev => [
-        ...prev.slice(0, -1),
-        { 
-          role: 'assistant', 
-          content: aiResponse,
-          timestamp: new Date().toLocaleTimeString()
+
+  const handleAIResponse = useCallback(
+    async (userMessage) => {
+      if (
+        !userMessage.trim() ||
+        !RoomData?.Topic ||
+        !RoomData?.Option ||
+        isAiResponding
+      )
+        return;
+
+      setIsAiResponding(true);
+      setRateLimitError(null);
+
+      const userMsgObj = {
+        role: "user",
+        content: userMessage,
+        timestamp: new Date().toLocaleTimeString(),
+      };
+
+      const thinkingObj = {
+        role: "assistant",
+        content: "...",
+        timestamp: new Date().toLocaleTimeString(),
+      };
+
+      setConversation((prev) => [...prev, userMsgObj, thinkingObj]);
+
+      try {
+        const response = await AI_Model(
+          RoomData.Topic,
+          RoomData.Option,
+          userMessage,
+          conversation.filter((msg) => msg.role !== "system")
+        );
+
+        setConversation((prev) => [
+          ...prev.slice(0, -1),
+          {
+            role: "assistant",
+            content: response,
+            timestamp: new Date().toLocaleTimeString(),
+          },
+        ]);
+
+        speakResponse(response);
+      } catch (err) {
+        console.error("AI error", err);
+        setConversation((prev) => [
+          ...prev.slice(0, -1),
+          {
+            role: "assistant",
+            content: err.message || "I'm having trouble responding.",
+            timestamp: new Date().toLocaleTimeString(),
+          },
+        ]);
+
+        if (err.message?.includes("free usage limit")) {
+          setRateLimitError(err.message);
         }
-      ]);
-      
-      await speakResponse(aiResponse);
-    } catch (error) {
-      console.error('AI Response Error:', error);
-      setConversation(prev => [
-        ...prev.slice(0, -1),
-        { 
-          role: 'assistant', 
-          content: error.message || "Sorry, I'm having trouble responding.",
-          timestamp: new Date().toLocaleTimeString()
-        }
-      ]);
-      
-      if (error.message.includes('free usage limit')) {
-        setRateLimitError(error.message);
+      } finally {
+        setIsAiResponding(false);
       }
-    } finally {
-      setIsAiResponding(false);
-    }
-  }, [RoomData, conversation, isAiResponding, speakResponse]);
+    },
+    [RoomData, conversation, isAiResponding, speakResponse]
+  );
 
-  // Start/stop continuous listening
+  const startRecording = () => {
+    if (isRecording) return;
+    setRecognitionError(null);
+    setTranscript("");
+
+    try {
+      const recognition = createSpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+
+      recognition.onresult = (event) => {
+        clearTimeout(silenceTimerRef.current);
+
+        let interim = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          const txt = result[0].transcript;
+
+          if (result.isFinal) {
+            currentMessageRef.current += txt + " ";
+            setTranscript(currentMessageRef.current.trim());
+          } else {
+            interim += txt;
+            setTranscript(currentMessageRef.current + interim);
+          }
+        }
+
+        silenceTimerRef.current = setTimeout(() => {
+          const finalText = currentMessageRef.current.trim();
+          if (finalText) {
+            handleAIResponse(finalText);
+            currentMessageRef.current = "";
+            setTranscript("");
+          }
+        }, 3000); // Trigger after 3 sec silence
+      };
+
+      recognition.onerror = (e) => {
+        setRecognitionError(mapRecognitionError(e.error));
+        stopRecording();
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+        recognitionRef.current = null;
+      };
+
+      recognition.start();
+      recognitionRef.current = recognition;
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Speech error", err);
+      setRecognitionError(err.message);
+    }
+  };
+
   const toggleConnection = async () => {
     if (isConnected) {
       stopRecording();
@@ -122,126 +216,109 @@ function DiscussionRoom() {
     } else {
       try {
         const hasPermission = await checkMicrophonePermission();
-        if (!hasPermission) {
-          throw new Error("Microphone permission required");
-        }
-        
+        if (!hasPermission) throw new Error("Microphone permission denied");
         startRecording();
         setIsConnected(true);
-      } catch (error) {
-        console.error("Connection error:", error);
-        setRecognitionError(error.message);
+      } catch (err) {
+        console.error(err);
+        setRecognitionError(err.message);
       }
     }
   };
 
-  // Recording functions with proper message handling
-  const startRecording = () => {
-    if (isRecording) return;
-    
-    setRecognitionError(null);
-    setTranscript('');
-    
-    try {
-      const recognition = createSpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      
-      let currentMessage = '';
-      
-      recognition.onresult = (event) => {
-        clearTimeout(silenceTimerRef.current);
-        
-        // Reset interim transcript
-        let interim = '';
-        
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            // Add to current message if it's a final result
-            currentMessage += transcript + ' ';
-            setTranscript(currentMessage.trim());
-          } else {
-            // Show interim results
-            interim += transcript;
-            setTranscript(currentMessage + interim);
+  const endSession = useCallback(async () => {
+    if (window.confirm("End session and save conversation?")) {
+      stopRecording();
+      setIsConnected(false);
+      await saveConversation(true);
+      router.push("/dashboard");
+    }
+  }, [router, saveConversation, stopRecording]);
+
+  useEffect(() => {
+    if (RoomData?.conversation) {
+      setConversation(RoomData.conversation);
+    }
+  }, [RoomData?.conversation]);
+
+  useEffect(() => {
+    if (RoomData && !expert) {
+      const found = Experts.find((e) => e.name === RoomData.Assistant);
+      if (found) {
+        setExpert(found);
+        if (!RoomData.conversation || RoomData.conversation.length === 0) {
+          const welcome = `Hello! I'm ${found.name}, your ${RoomData.Option} assistant. How can I help you with ${RoomData.Topic} today?`;
+          setConversation([
+            {
+              role: "assistant",
+              content: welcome,
+              timestamp: new Date().toLocaleTimeString(),
+            },
+          ]);
+          if (isConnected) {
+            speakResponse(welcome);
           }
         }
-        
-        // Set timeout for silence detection (3 seconds)
-        silenceTimerRef.current = setTimeout(() => {
-          if (currentMessage.trim()) {
-            handleAIResponse(currentMessage.trim());
-            currentMessage = '';
-            setTranscript('');
-          }
-        }, 3000);
-      };
-      
-      recognition.onerror = (event) => {
-        setRecognitionError(mapRecognitionError(event.error));
-        stopRecording();
-      };
-      
-      recognition.onend = () => {
-        setIsRecording(false);
-        recognitionRef.current = null;
-      };
-      
-      recognition.start();
-      recognitionRef.current = recognition;
-      setIsRecording(true);
-    } catch (error) {
-      console.error("Recording error:", error);
-      setRecognitionError(error.message);
-      setIsRecording(false);
+      }
     }
-  };
+  }, [RoomData, expert, isConnected, speakResponse]);
 
-  const stopRecording = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-    }
-    clearTimeout(silenceTimerRef.current);
-    setIsRecording(false);
-  };
-
-  // Clean up on unmount
   useEffect(() => {
-    return () => {
-      stopRecording();
-    };
-  }, []);
+    if (conversationContainerRef.current) {
+      conversationContainerRef.current.scrollTop =
+        conversationContainerRef.current.scrollHeight;
+    }
+  }, [conversation]);
+
+  if (!isLoaded) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto p-4 h-screen flex flex-col bg-gradient-to-br from-blue-50 to-gray-50">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-blue-800">AI Assistant</h1>
         <div className="flex items-center space-x-4">
-          <div className={`flex items-center ${isConnected ? 'text-green-600' : 'text-gray-500'}`}>
-            <div className={`w-3 h-3 rounded-full mr-2 ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
-            <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
-          </div>
           <Button
-            onClick={toggleConnection}
-            variant={isConnected ? 'destructive' : 'default'}
-            className="px-6 py-3 rounded-full shadow-md transition-all hover:scale-105"
+            onClick={endSession}
+            variant="ghost"
+            className="px-6 py-3 rounded-full shadow-md border border-gray-300 hover:bg-gray-100 transition-all group"
+            disabled={isSaving}
           >
-            {isConnected ? (
+            {isSaving ? (
               <>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
+                <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Disconnect
+                Saving...
               </>
             ) : (
               <>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
-                Connect
+                End Session
               </>
             )}
+          </Button>
+          
+          <div className={`flex items-center ${isConnected ? 'text-green-600' : 'text-gray-500'}`}>
+            <div className={`w-3 h-3 rounded-full mr-2 ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
+            <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
+          </div>
+          
+          <Button
+            onClick={toggleConnection}
+            variant={isConnected ? 'destructive' : 'default'}
+            className="px-6 py-3 rounded-full shadow-md transition-all hover:scale-105"
+            disabled={isAiResponding || isSpeaking}
+          >
+            {isConnected ? 'Disconnect' : 'Connect'}
           </Button>
         </div>
       </div>
@@ -335,7 +412,7 @@ function DiscussionRoom() {
                       {msg.role === 'user' ? 'You' : expert?.name || 'Assistant'}
                     </span>
                     <span className="text-xs text-gray-500">
-                      {msg.timestamp || new Date().toLocaleTimeString()}
+                      {msg.timestamp}
                     </span>
                   </div>
                   <p className="whitespace-pre-wrap text-gray-800">
@@ -399,4 +476,10 @@ function DiscussionRoom() {
   );
 }
 
-export default DiscussionRoom;
+export default function DiscussionRoomPage() {
+  return (
+    <ClerkProvider>
+      <DiscussionRoomContent />
+    </ClerkProvider>
+  );
+}

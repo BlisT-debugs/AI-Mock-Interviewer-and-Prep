@@ -8,7 +8,7 @@ function History() {
 
   return (
     <div>
-      <h2 className='font-bold text-2xl mb-4'>Your Previous Lectures</h2>
+      <h2 className='font-bold font-mono text-xl mb-4'>Your Previous Lectures</h2>
       
       {previousLectures?.length === 0 ? (
         <p className='text-gray-400'>You don't have any previous lectures</p>

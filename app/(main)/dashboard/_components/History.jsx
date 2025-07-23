@@ -7,7 +7,7 @@ function History() {
   const previousLectures = useQuery(api.DiscussionRoom.GetUserRooms, { userId: "temp-user" }); // Replace with actual user ID when you implement auth
 
   return (
-    <div className="bg-white rounded-lg p-6 shadow-lg">
+    <div>
       <h2 className='font-bold text-2xl mb-4'>Your Previous Lectures</h2>
       
       {previousLectures?.length === 0 ? (

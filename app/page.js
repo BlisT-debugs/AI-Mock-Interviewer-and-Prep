@@ -12,6 +12,7 @@ import { BlurFade } from "@/components/magicui/blur-fade";
 import { Mic, Cpu, LineChart, Shield, Zap, Layout, CheckCircle2 } from "lucide-react";
 import AppHeader from "./(main)/_components/AppHeader";
 import { UserButton } from "@stackframe/stack";
+import { LiveChat } from "@/components/LiveChat";
 
 
 
@@ -95,6 +96,7 @@ export default function Home() {
           </div>
         </div>
       </footer>
+      <LiveChat />
     </div>
   );
 }

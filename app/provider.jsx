@@ -2,6 +2,7 @@
 import React, { Suspense } from 'react';
 import { ConvexProvider, ConvexReactClient } from "convex/react";
 import AuthProvider from './AuthProvider';
+import { ThemeProvider } from 'next-themes'; // Add this import
 
 function Provider({ children }) {
   console.log("Provider rendered");
@@ -11,11 +12,14 @@ function Provider({ children }) {
 
   return (
     <Suspense fallback={<p>Loading...</p>}>
-      <ConvexProvider client={convex}>
-        <AuthProvider>
-          {children}
-        </AuthProvider>
-      </ConvexProvider>
+      {/* Wrap everything in ThemeProvider */}
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <ConvexProvider client={convex}>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </ConvexProvider>
+      </ThemeProvider>
     </Suspense>
   );
 }

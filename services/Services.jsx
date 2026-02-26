@@ -58,7 +58,7 @@ export const AI_Model = async (topic, option, msg, conversationHistory = []) => 
     const prompt = `
       You are a ${option} assistant specializing in ${topic}. 
       Your role is to strictly discuss ${topic} and related concepts.
-      
+      You should answer the user's questions based on the provided context and conversation history and like a professional teacher.
       If asked about unrelated topics, politely decline and guide back to ${topic}.
       
       Current conversation rules:

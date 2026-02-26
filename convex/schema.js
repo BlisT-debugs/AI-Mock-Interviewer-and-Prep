@@ -15,11 +15,4 @@ export default defineSchema({
         completed: v.optional(v.boolean()),    
         lastUpdated: v.optional(v.number())
     }),
-    UserLectures: defineTable({
-    userId: v.string(),
-    roomId: v.id('DiscussionRoom'),
-    completedAt: v.number(),
-    topic: v.string(),
-    assistant: v.string(),
-  }).index('by_user', ['userId']),
 })

@@ -62,21 +62,3 @@ export const UpdateConversation = mutation({
         });
     }
 });
-
-export const markAsCompleted = mutation({
-  args: { roomId: v.id('DiscussionRoom') },
-  handler: async (ctx, args) => {
-    const room = await ctx.db.get(args.roomId);
-    if (!room) throw new Error("Room not found");
-    
-    await ctx.db.insert('UserLectures', {
-      userId: "temp-user", // Replace with actual user ID later
-      roomId: args.roomId,
-      completedAt: Date.now(),
-      topic: room.Topic,
-      assistant: room.Assistant
-    });
-    
-    return await ctx.db.patch(args.roomId, { completed: true });
-  }
-});

@@ -12,7 +12,7 @@ export const ElevenLabsService = {
           },
           body: JSON.stringify({
             text,
-            model_id: 'eleven_multilingual_v2', // ✅ more universal fallback
+            model_id: 'eleven_multilingual_v2', // universal fallback
             voice_settings: {
               stability: 0.4,
               similarity_boost: 0.75,

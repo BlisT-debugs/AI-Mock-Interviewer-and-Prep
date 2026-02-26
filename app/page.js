@@ -13,6 +13,7 @@ import { Mic, Cpu, LineChart, Shield, Zap, Layout, CheckCircle2 } from "lucide-r
 import AppHeader from "./(main)/_components/AppHeader";
 import { UserButton } from "@stackframe/stack";
 import { LiveChat } from "@/components/LiveChat";
+import { Testimonials } from "@/components/Testimonials";
 
 
 
@@ -32,37 +33,7 @@ export default function Home() {
         <HowItWorks />
 
         {/* Testimonials Section */}
-        <section className="mb-24">
-          <h2 className="text-3xl font-bold text-center mb-16">What Our Users Say</h2>
-          
-          <div className="grid md:grid-cols-2 gap-8">
-            <div className="bg-white p-8 rounded-xl shadow-md">
-              <div className="flex items-center mb-4">
-                <div className="w-12 h-12 rounded-full bg-gray-200 mr-4"></div>
-                <div>
-                  <h4 className="font-semibold">Sarah K.</h4>
-                  <p className="text-gray-500 text-sm">Software Engineer</p>
-                </div>
-              </div>
-              <p className="text-gray-600 italic">
-                "The AI technical interviewer helped me land my dream job at Google. The practice sessions were incredibly realistic!"
-              </p>
-            </div>
-            
-            <div className="bg-white p-8 rounded-xl shadow-md">
-              <div className="flex items-center mb-4">
-                <div className="w-12 h-12 rounded-full bg-gray-200 mr-4"></div>
-                <div>
-                  <h4 className="font-semibold">Michael T.</h4>
-                  <p className="text-gray-500 text-sm">Business Analyst</p>
-                </div>
-              </div>
-              <p className="text-gray-600 italic">
-                "I was nervous about case interviews, but after 10 sessions with the McKinsey-style AI coach, I aced my final rounds."
-              </p>
-            </div>
-          </div>
-        </section>
+        <Testimonials />
 
         {/* CTA Section */}
         <section className="bg-blue-600 rounded-2xl p-12 text-center text-white">

@@ -5,6 +5,7 @@ import { Button } from './ui/button';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTheme } from 'next-themes';
+import Link from 'next/link';
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -53,12 +54,11 @@ export function Header() {
                 <Moon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
               )}
             </button>
-            <Button variant="ghost" size="sm">
-              Sign In
-            </Button>
+            <Link href="/dashboard">
             <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
               Get Started
             </Button>
+            </Link>
           </div>
 
           {/* Mobile Menu Button */}
@@ -106,12 +106,11 @@ export function Header() {
                   </button>
                 </div>
                 <div className="pt-4 space-y-2">
-                  <Button variant="ghost" className="w-full">
-                    Sign In
-                  </Button>
+                  <Link href= "/dashboard">
                   <Button className="w-full bg-blue-600 hover:bg-blue-700">
                     Get Started
                   </Button>
+                  </Link>
                 </div>
               </div>
             </motion.div>

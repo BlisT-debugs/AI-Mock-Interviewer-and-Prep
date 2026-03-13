@@ -7,11 +7,7 @@ import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { AI_Model, speakText } from "@/services/Services";
-import {
-  checkMicrophonePermission,
-  createSpeechRecognition,
-  mapRecognitionError,
-} from "@/services/speechUtils";
+
 import { useUser, ClerkProvider } from "@clerk/nextjs";
 
 function DiscussionRoomContent() {

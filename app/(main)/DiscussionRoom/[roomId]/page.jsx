@@ -7,12 +7,11 @@ import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { AI_Model, speakText } from "@/services/Services";
-
-import { useUser, ClerkProvider } from "@clerk/nextjs";
+import {useUser} from "@stackframe/stack";
 
 function DiscussionRoomContent() {
   const router = useRouter();
-  const { isLoaded, user } = useUser();
+  const { user } = useUser();
   const { roomId } = useParams();
   const updateConversation = useMutation(api.DiscussionRoom.UpdateConversation);
   const RoomData = useQuery(api.DiscussionRoom.GetRoom, { id: roomId });
@@ -266,13 +265,13 @@ function DiscussionRoomContent() {
     }
   }, [conversation]);
 
-  if (!isLoaded) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
+  if (!user) {
+  return (
+    <div className="flex justify-center items-center h-screen">
+      Loading...
+    </div>
+  );
+}
 
   return (
     <div className="max-w-6xl mx-auto p-4 h-screen flex flex-col bg-gradient-to-br from-blue-50 to-gray-50">
@@ -473,9 +472,6 @@ function DiscussionRoomContent() {
 }
 
 export default function DiscussionRoomPage() {
-  return (
-    <ClerkProvider>
-      <DiscussionRoomContent />
-    </ClerkProvider>
-  );
+  return <DiscussionRoomContent />;
+  
 }

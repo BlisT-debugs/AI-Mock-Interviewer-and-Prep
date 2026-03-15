@@ -9,7 +9,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@clerk/nextjs": "^6.24.0",
     "@elevenlabs/elevenlabs-js": "^2.6.0",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-dialog": "^1.1.14",
@@ -24,12 +23,12 @@
     "lodash": "^4.17.21",
     "lucide-react": "^0.515.0",
     "motion": "^12.23.3",
-    "next": "^16.1.6",
+    "next": "15.2.3",
     "next-themes": "^0.4.6",
     "node-record-lpcm16": "^1.0.1",
     "openai": "^5.9.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "recordrtc": "^5.6.2",
     "stream": "^0.0.3",
     "tailwind-merge": "^3.3.1"

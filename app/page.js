@@ -1,7 +1,7 @@
 "use client";
 
-import { Header } from "@/components/header";
-import { Hero } from "@/components/hero";
+import { Header } from "@/components/Header";
+import { Hero } from "@/components/Hero";
 import { Features } from "@/components/Features";
 import { HowItWorks } from "@/components/HowItWorks";
 import { LiveChat } from "@/components/LiveChat";

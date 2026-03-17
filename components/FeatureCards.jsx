@@ -4,6 +4,8 @@ import { BookOpen, Video, HelpCircle, Languages, ArrowRight } from 'lucide-react
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+// Import UserInputDialog - adjust path if necessary depending on your folder structure setup
+import UserInputDialog from '@/app/(main)/dashboard/_components/UserInputDialog';
 
 const features = [
   {
@@ -14,7 +16,6 @@ const features = [
     iconBg: 'bg-blue-100',
     iconColor: 'text-blue-600',
     badge: '12 New',
-    stats: '156 lectures',
   },
   {
     title: 'Mock Interviews',
@@ -24,7 +25,6 @@ const features = [
     iconBg: 'bg-purple-100',
     iconColor: 'text-purple-600',
     badge: 'Popular',
-    stats: '24 available',
   },
   {
     title: 'Question Bank',
@@ -34,7 +34,6 @@ const features = [
     iconBg: 'bg-cyan-100',
     iconColor: 'text-cyan-600',
     badge: '500+',
-    stats: '8 categories',
   },
   {
     title: 'Language Proficiency',
@@ -44,7 +43,6 @@ const features = [
     iconBg: 'bg-pink-100',
     iconColor: 'text-pink-600',
     badge: 'New',
-    stats: '6 languages',
   },
 ];
 
@@ -62,12 +60,14 @@ export function FeatureCards() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {features.map((feature) => {
           const Icon = feature.icon;
-          return (
-            <Card
-              key={feature.title}
-              className="group relative overflow-hidden border-0 bg-white dark:bg-gray-900 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer"
-            >
-              <div className="p-6">
+          
+          // Determine if this specific card should trigger the dialog
+          const needsDialog = feature.title === 'Topic Wise Lectures' || feature.title === 'Mock Interviews';
+
+          // Define the card visually
+          const CardContent = (
+            <Card className="group relative overflow-hidden border-0 bg-white dark:bg-gray-900 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer h-full">
+              <div className="p-6 flex flex-col h-full">
                 {/* Badge */}
                 <div className="flex items-start justify-between mb-4">
                   <div className={`${feature.iconBg} dark:bg-opacity-20 p-3 rounded-xl group-hover:scale-110 transition-transform`}>
@@ -86,11 +86,8 @@ export function FeatureCards() {
                   {feature.description}
                 </p>
 
-                {/* Stats */}
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500 dark:text-gray-500 font-medium">
-                    {feature.stats}
-                  </span>
+                {/* Arrow (Stats removed as requested) */}
+                <div className="flex items-center justify-end mt-auto">
                   <ArrowRight className="h-4 w-4 text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:translate-x-1 transition-all" />
                 </div>
               </div>
@@ -98,6 +95,17 @@ export function FeatureCards() {
               {/* Gradient overlay on hover */}
               <div className={`absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r ${feature.color} transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left`}></div>
             </Card>
+          );
+
+          // Conditionally wrap with UserInputDialog based on the title
+          return needsDialog ? (
+            <UserInputDialog key={feature.title} options={{ name: feature.title }}>
+              {CardContent}
+            </UserInputDialog>
+          ) : (
+            <div key={feature.title} className="h-full">
+              {CardContent}
+            </div>
           );
         })}
       </div>

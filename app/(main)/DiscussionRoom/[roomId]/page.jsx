@@ -7,15 +7,16 @@ import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { AI_Model, speakText } from "@/services/Services";
-import {useUser} from "@stackframe/stack";
+import { useUser } from "@stackframe/stack";
 
 function DiscussionRoomContent() {
   const router = useRouter();
-  const { user } = useUser();
+  const user = useUser(); // Stack Auth user hook fixed
   const { roomId } = useParams();
   const updateConversation = useMutation(api.DiscussionRoom.UpdateConversation);
   const RoomData = useQuery(api.DiscussionRoom.GetRoom, { id: roomId });
 
+  // States
   const [expert, setExpert] = useState(null);
   const [transcript, setTranscript] = useState("");
   const [recognitionError, setRecognitionError] = useState(null);
@@ -24,13 +25,44 @@ function DiscussionRoomContent() {
   const [isRecording, setIsRecording] = useState(false);
   const [rateLimitError, setRateLimitError] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [shouldBeConnected, setShouldBeConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Refs
   const recognitionRef = useRef(null);
   const silenceTimerRef = useRef(null);
   const conversationContainerRef = useRef(null);
   const currentMessageRef = useRef("");
+
+  // Helper Functions
+  const checkMicrophonePermission = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop());
+      return true;
+    } catch (err) {
+      console.error("Microphone permission denied:", err);
+      alert("Microphone access is required to use the voice assistant.");
+      return false;
+    }
+  };
+
+  const createSpeechRecognition = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) throw new Error("Speech Recognition is not supported in this browser.");
+    return new SpeechRecognition();
+  };
+
+  const mapRecognitionError = (errorType) => {
+    const errorMap = {
+      'network': 'Network error occurred.',
+      'not-allowed': 'Microphone access denied.',
+      'no-speech': 'No speech detected.',
+      'aborted': 'Listening aborted.'
+    };
+    return errorMap[errorType] || `Speech recognition error: ${errorType}`;
+  };
 
   const stopRecording = useCallback(() => {
     if (recognitionRef.current) {
@@ -62,50 +94,40 @@ function DiscussionRoomContent() {
     [roomId, conversation, updateConversation]
   );
 
+  // 1. Speak Response (Does not call startRecording anymore)
   const speakResponse = useCallback(
-  async (text) => {
-    if (!text || isSpeaking || !expert?.voiceId) return;
-    setIsSpeaking(true);
-    try {
-      const chunks = text.match(/[^.!?]+[.!?]+/g) || [text];
-
-      for (const chunk of chunks) {
-        await speakText(chunk, expert.voiceId); // serialize speech
+    async (text) => {
+      if (!text || isSpeaking || !expert?.voiceId) return;
+      setIsSpeaking(true);
+      
+      if (recognitionRef.current) {
+        recognitionRef.current.stop(); // Turn off mic while AI speaks
       }
-    } catch (e) {
-      console.error("speakText error:", e);
-    } finally {
-      setIsSpeaking(false);
-    }
-  },
-  [expert?.voiceId, isSpeaking]
-);
 
+      try {
+        const chunks = text.match(/[^.!?]+[.!?]+/g) || [text];
+        for (const chunk of chunks) {
+          await speakText(chunk, expert.voiceId);
+        }
+      } catch (e) {
+        console.error("speakText error:", e);
+      } finally {
+        setIsSpeaking(false);
+      }
+    },
+    [expert?.voiceId, isSpeaking]
+  );
 
+  // 2. Handle AI Response
   const handleAIResponse = useCallback(
     async (userMessage) => {
-      if (
-        !userMessage.trim() ||
-        !RoomData?.Topic ||
-        !RoomData?.Option ||
-        isAiResponding
-      )
-        return;
+      if (!userMessage.trim() || !RoomData?.Topic || !RoomData?.Option || isAiResponding) return;
 
       setIsAiResponding(true);
       setRateLimitError(null);
 
-      const userMsgObj = {
-        role: "user",
-        content: userMessage,
-        timestamp: new Date().toLocaleTimeString(),
-      };
-
-      const thinkingObj = {
-        role: "assistant",
-        content: "...",
-        timestamp: new Date().toLocaleTimeString(),
-      };
+      const userMsgObj = { role: "user", content: userMessage, timestamp: new Date().toLocaleTimeString() };
+      const thinkingObj = { role: "assistant", content: "...", timestamp: new Date().toLocaleTimeString() };
 
       setConversation((prev) => [...prev, userMsgObj, thinkingObj]);
 
@@ -119,11 +141,7 @@ function DiscussionRoomContent() {
 
         setConversation((prev) => [
           ...prev.slice(0, -1),
-          {
-            role: "assistant",
-            content: response,
-            timestamp: new Date().toLocaleTimeString(),
-          },
+          { role: "assistant", content: response, timestamp: new Date().toLocaleTimeString() },
         ]);
 
         speakResponse(response);
@@ -131,16 +149,10 @@ function DiscussionRoomContent() {
         console.error("AI error", err);
         setConversation((prev) => [
           ...prev.slice(0, -1),
-          {
-            role: "assistant",
-            content: err.message || "I'm having trouble responding.",
-            timestamp: new Date().toLocaleTimeString(),
-          },
+          { role: "assistant", content: err.message || "I'm having trouble responding.", timestamp: new Date().toLocaleTimeString() },
         ]);
 
-        if (err.message?.includes("free usage limit")) {
-          setRateLimitError(err.message);
-        }
+        if (err.message?.includes("free usage limit")) setRateLimitError(err.message);
       } finally {
         setIsAiResponding(false);
       }
@@ -148,8 +160,9 @@ function DiscussionRoomContent() {
     [RoomData, conversation, isAiResponding, speakResponse]
   );
 
-  const startRecording = () => {
-    if (isRecording) return;
+  // 3. Start Recording
+  const startRecording = useCallback(() => {
+    if (recognitionRef.current || isSpeaking) return;
     setRecognitionError(null);
     setTranscript("");
 
@@ -160,7 +173,6 @@ function DiscussionRoomContent() {
 
       recognition.onresult = (event) => {
         clearTimeout(silenceTimerRef.current);
-
         let interim = "";
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const result = event.results[i];
@@ -178,16 +190,20 @@ function DiscussionRoomContent() {
         silenceTimerRef.current = setTimeout(() => {
           const finalText = currentMessageRef.current.trim();
           if (finalText) {
+            if (recognitionRef.current) recognitionRef.current.stop();
             handleAIResponse(finalText);
             currentMessageRef.current = "";
             setTranscript("");
           }
-        }, 3000); // Trigger after 3 sec silence
+        }, 2000); 
       };
 
       recognition.onerror = (e) => {
-        setRecognitionError(mapRecognitionError(e.error));
-        stopRecording();
+        if (e.error !== 'no-speech') {
+          setRecognitionError(mapRecognitionError(e.error));
+          setShouldBeConnected(false);
+          setIsConnected(false);
+        }
       };
 
       recognition.onend = () => {
@@ -201,22 +217,41 @@ function DiscussionRoomContent() {
     } catch (err) {
       console.error("Speech error", err);
       setRecognitionError(err.message);
+      setShouldBeConnected(false);
+      setIsConnected(false);
     }
-  };
+  }, [isSpeaking, handleAIResponse]);
+
+
+  // 4. THE FIX: Auto-Restart Hook 
+  // This watches the state and restarts the mic when the AI finishes speaking
+  useEffect(() => {
+    if (shouldBeConnected && !isSpeaking && !isAiResponding && !isRecording) {
+      const timer = setTimeout(() => {
+        startRecording();
+      }, 250); // slight delay to prevent audio engine overlap
+      return () => clearTimeout(timer);
+    }
+  }, [shouldBeConnected, isSpeaking, isAiResponding, isRecording, startRecording]);
+
 
   const toggleConnection = async () => {
     if (isConnected) {
-      stopRecording();
+      setShouldBeConnected(false);
       setIsConnected(false);
+      stopRecording();
     } else {
       try {
         const hasPermission = await checkMicrophonePermission();
         if (!hasPermission) throw new Error("Microphone permission denied");
-        startRecording();
+        
+        setShouldBeConnected(true);
         setIsConnected(true);
+        startRecording();
       } catch (err) {
         console.error(err);
         setRecognitionError(err.message);
+        setShouldBeConnected(false);
       }
     }
   };
@@ -225,15 +260,14 @@ function DiscussionRoomContent() {
     if (window.confirm("End session and save conversation?")) {
       stopRecording();
       setIsConnected(false);
+      setShouldBeConnected(false);
       await saveConversation(true);
       router.push("/dashboard");
     }
   }, [router, saveConversation, stopRecording]);
 
   useEffect(() => {
-    if (RoomData?.conversation) {
-      setConversation(RoomData.conversation);
-    }
+    if (RoomData?.conversation) setConversation(RoomData.conversation);
   }, [RoomData?.conversation]);
 
   useEffect(() => {
@@ -243,16 +277,8 @@ function DiscussionRoomContent() {
         setExpert(found);
         if (!RoomData.conversation || RoomData.conversation.length === 0) {
           const welcome = `Hello! I'm ${found.name}, your ${RoomData.Option} assistant. How can I help you with ${RoomData.Topic} today?`;
-          setConversation([
-            {
-              role: "assistant",
-              content: welcome,
-              timestamp: new Date().toLocaleTimeString(),
-            },
-          ]);
-          if (isConnected) {
-            speakResponse(welcome);
-          }
+          setConversation([{ role: "assistant", content: welcome, timestamp: new Date().toLocaleTimeString() }]);
+          if (isConnected) speakResponse(welcome);
         }
       }
     }
@@ -260,18 +286,13 @@ function DiscussionRoomContent() {
 
   useEffect(() => {
     if (conversationContainerRef.current) {
-      conversationContainerRef.current.scrollTop =
-        conversationContainerRef.current.scrollHeight;
+      conversationContainerRef.current.scrollTop = conversationContainerRef.current.scrollHeight;
     }
   }, [conversation]);
 
   if (!user) {
-  return (
-    <div className="flex justify-center items-center h-screen">
-      Loading...
-    </div>
-  );
-}
+    return <div className="flex justify-center items-center h-screen">Loading...</div>;
+  }
 
   return (
     <div className="max-w-6xl mx-auto p-4 h-screen flex flex-col bg-gradient-to-br from-blue-50 to-gray-50">
@@ -473,5 +494,4 @@ function DiscussionRoomContent() {
 
 export default function DiscussionRoomPage() {
   return <DiscussionRoomContent />;
-  
 }

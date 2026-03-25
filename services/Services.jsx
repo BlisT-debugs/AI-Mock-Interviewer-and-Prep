@@ -1,54 +1,11 @@
-import OpenAI from 'openai';
 import options from './Options';
 import { ElevenLabsService, VOICE_OPTIONS } from './ElevenLabs';
+import { GoogleGenAI } from '@google/genai';
 
-let openaiInstance = null;
-const requestQueue = [];
-const REQUEST_INTERVAL = 6000;
-
-const createOpenAIClient = (apiKey) => {
-  if (!apiKey) throw new Error('API key required');
-
-  if (!openaiInstance) {
-    openaiInstance = new OpenAI({
-      apiKey,
-      baseURL: 'https://openrouter.ai/api/v1',
-      dangerouslyAllowBrowser: true,
-      timeout: 10000,
-    });
-  }
-
-  return openaiInstance;
-};
-
-const queueRequest = (fn) =>
-  new Promise((resolve, reject) => {
-    const executeRequest = async () => {
-      try {
-        const result = await fn();
-        resolve(result);
-      } catch (error) {
-        reject(error);
-      }
-    };
-
-    requestQueue.push(executeRequest);
-
-    if (requestQueue.length === 1) {
-      processQueue();
-    }
-  });
-
-const processQueue = async () => {
-  if (!requestQueue.length) return;
-
-  await requestQueue[0]();
-  requestQueue.shift();
-
-  if (requestQueue.length > 0) {
-    setTimeout(processQueue, REQUEST_INTERVAL);
-  }
-};
+// Initialize the Gemini client using the new unified SDK
+const ai = new GoogleGenAI({ 
+  apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY 
+});
 
 export const AI_Model = async (topic, option, msg, conversationHistory = []) => {
   try {
@@ -70,64 +27,50 @@ export const AI_Model = async (topic, option, msg, conversationHistory = []) => 
       ${selected.prompt.replace('{user_topic}', topic)}
     `;
 
-    const openai = createOpenAIClient(process.env.NEXT_PUBLIC_API_KEY);
+    // 1. Format the history for Gemini.
+    // The new SDK uses 'user' and 'model' for roles.
+    const formattedHistory = conversationHistory.map(m => ({
+      role: m.role === 'user' ? 'user' : 'model',
+      parts: [{ text: m.content }]
+    }));
 
-    const messages = [
-      { role: 'system', content: prompt },
-      ...conversationHistory.slice(-4), // Keep more context
-      { role: 'user', content: msg },
+    // 2. We keep a bit more context (last 6 messages) so the AI remembers the flow
+    const recentHistory = formattedHistory.slice(-6);
+
+    // 3. Construct the full message array including system instructions
+    const fullConversation = [
+        { role: "user", parts: [{ text: "System Instructions: " + prompt }] },
+        { role: "model", parts: [{ text: "Understood. I will act as the requested assistant." }] },
+        ...recentHistory,
+        { role: "user", parts: [{ text: msg }] } // Add the current message
     ];
 
-    const fallbackModels = [      
-      'deepseek/deepseek-chat:free',
-      'openchat/openchat-3.5-0106:free',
-      'mistralai/mistral-7b-instruct:free',
-      'gryphe/mythomax-l2-13b:free'
-    ];
+    const startTime = Date.now();
 
-    const aiRequest = async () => {
-      const startTime = Date.now();
-      let lastError;
-
-      for (const model of fallbackModels) {
-        try {
-          const completion = await openai.chat.completions.create({
-            model,
-            messages,
-            temperature: 0.3, // Lower temperature for more focused responses
-          });
-
-          const response = completion.choices?.[0]?.message?.content;
-          if (response) {
-            // Additional topic enforcement
-            const lowerResponse = response.toLowerCase();
-            const lowerTopic = topic.toLowerCase();
-            
-            if (!lowerResponse.includes(lowerTopic)) {
-              return `I specialize in ${topic}Let's focus on that.`;
-            }
-
-            console.log(`AI (${model}) responded in ${Date.now() - startTime}ms`);
-            return response;
-          }
-        } catch (err) {
-          console.warn(`Model ${model} failed: ${err.message}`);
-          lastError = err;
-          if (err.status !== 429) break;
+    // 4. Call the Gemini API using the recommended gemini-2.5-flash model
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: fullConversation,
+        config: {
+            temperature: 0.3 // Lower temperature keeps it focused on the topic
         }
-      }
+    });
 
-      throw lastError || new Error('AI response failed');
-    };
+    const resultText = response.text;
 
-    return await queueRequest(aiRequest);
+    if (resultText) {
+        console.log(`AI (Gemini) responded in ${Date.now() - startTime}ms`);
+        return resultText;
+    }
+
+    throw new Error('AI response failed to generate text');
+
   } catch (error) {
-    console.error('AI_Model Error:', error);
+    console.error('Gemini API Error:', error);
 
-    if (error.status === 429) {
-      throw new Error(
-        'You have exceeded the free usage limit. Please wait or add credits to your OpenRouter account.'
-      );
+    // Provide a user-friendly error if the API key is missing
+    if (!process.env.NEXT_PUBLIC_GEMINI_API_KEY) {
+        throw new Error('Gemini API key is missing. Please configure it in your environment variables.');
     }
 
     throw new Error('AI is currently unavailable. Please try again later.');
@@ -143,7 +86,7 @@ const playAudioBuffer = (arrayBuffer) => {
         source.buffer = decodedData;
         source.connect(audioContext.destination);
         source.start(0);
-        console.log("Audio Started")
+        console.log("Audio Started");
         source.onended = resolve;
       })
       .catch(error => {
@@ -175,12 +118,9 @@ export const speakText = async (text, voiceId = null) => {
 
     const buffer = await ElevenLabsService.synthesizeSpeech(text, voiceToUse, apiKey);
 
-    console.log(" Got buffer of", buffer.byteLength, "bytes");
+    console.log("Got buffer of", buffer.byteLength, "bytes");
     await playAudioBuffer(buffer);
   } catch (error) {
-    console.error(' speakText error:', error);
+    console.error('speakText error:', error);
   }
 };
-
-
-

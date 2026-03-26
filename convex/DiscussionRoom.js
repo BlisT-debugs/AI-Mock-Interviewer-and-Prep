@@ -4,12 +4,18 @@ import { mutation, query } from "./_generated/server";
 export const CreateRoom = mutation({
     args: {
         Option: v.string(),
-        Topic: v.string(),
         Assistant: v.string(),
         userId: v.optional(v.string()),
         conversation: v.optional(v.array(v.any())),
         completed: v.optional(v.boolean()),
-        lastUpdated: v.optional(v.number())
+        lastUpdated: v.optional(v.number()),
+        
+        // --- MODIFIED & NEW FIELDS ---
+        Topic: v.optional(v.string()), // Made optional
+        resumeText: v.optional(v.string()),
+        jdText: v.optional(v.string()),
+        role: v.optional(v.string()),
+        industry: v.optional(v.string()),
     },
     handler: async(ctx, args) => {
         const res = await ctx.db.insert('DiscussionRoom', {
@@ -19,7 +25,13 @@ export const CreateRoom = mutation({
             userId: args.userId || null,
             conversation: args.conversation || [],
             lastUpdated: args.lastUpdated || Date.now(),
-            completed: args.completed || false
+            completed: args.completed || false,
+            
+            // --- SAVE NEW FIELDS TO DB ---
+            resumeText: args.resumeText,
+            jdText: args.jdText,
+            role: args.role,
+            industry: args.industry,
         });
         return res;
     }

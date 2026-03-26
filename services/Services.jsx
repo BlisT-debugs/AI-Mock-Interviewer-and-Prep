@@ -1,58 +1,84 @@
 import options from './Options';
-import { ElevenLabsService, VOICE_OPTIONS } from './ElevenLabs';
 import { GoogleGenAI } from '@google/genai';
 
-// Initialize the Gemini client using the new unified SDK
+// Initialize the Gemini client 
 const ai = new GoogleGenAI({ 
   apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY 
 });
 
-export const AI_Model = async (topic, option, msg, conversationHistory = []) => {
+export const AI_Model = async (RoomData, msg, conversationHistory = []) => {
   try {
-    const selected = options.find((opt) => opt.name === option);
-    if (!selected) throw new Error(`Option "${option}" not found`);
+    const { Topic, Option, Assistant, resumeText, jdText, role, industry } = RoomData;
+    
+    const selected = options.find((opt) => opt.name === Option);
+    if (!selected) throw new Error(`Option "${Option}" not found`);
 
-    const prompt = `
-      You are a ${option} assistant specializing in ${topic}. 
-      Your role is to strictly discuss ${topic} and related concepts.
-      You should answer the user's questions based on the provided context and conversation history and like a professional teacher.
-      If asked about unrelated topics, politely decline and guide back to ${topic}.
-      
-      Current conversation rules:
-      - Stay focused on ${topic}
-      - If user asks unrelated questions, respond: "I specialize in ${topic}. Let's focus on that."
-      - Never discuss politics, sports, or other off-topic subjects
-      - Keep responses concise (under 100 words)
-      
-      ${selected.prompt.replace('{user_topic}', topic)}
-    `;
+    let prompt = "";
 
-    // 1. Format the history for Gemini.
-    // The new SDK uses 'user' and 'model' for roles.
+    // --- MOCK INTERVIEW MODE (Context Aware) ---
+    if (Option === "Mock Interviews" && resumeText) {
+      prompt = `
+      You are ${Assistant}, a Senior Technical Recruiter and Hiring Manager.
+      You are currently conducting a professional mock interview with a candidate.
+
+      Here is the candidate's actual Resume:
+      """
+      ${resumeText.substring(0, 3000)} // Truncate to save tokens if it's huge
+      """
+
+      Here is the Job Description / Role they are applying for:
+      """
+      ${jdText ? jdText.substring(0, 2000) : `Role: ${role}, Industry: ${industry}`}
+      """
+
+      YOUR INSTRUCTIONS:
+      1. Act exactly like a real interviewer. Be professional, slightly challenging, but encouraging.
+      2. Ask ONE question at a time. DO NOT give a list of questions. Wait for the user to answer.
+      3. Base your questions directly on the skills and experiences listed in their resume AND how they apply to the Job Description.
+      4. If they give a weak answer, ask a follow-up probing question to dig deeper.
+      5. Keep your responses conversational and under 100 words so it feels like a real chat.
+      6. Do not break character. Do not say "I am an AI".
+      `;
+    } 
+    // --- STANDARD TOPIC MODE ---
+    else {
+      prompt = `
+        You are ${Assistant}, a ${Option} assistant specializing in ${Topic}. 
+        Your role is to strictly discuss ${Topic} and related concepts.
+        You should answer the user's questions based on the provided context and conversation history and like a professional teacher.
+        If asked about unrelated topics, politely decline and guide back to ${Topic}.
+        
+        Current conversation rules:
+        - Stay focused on ${Topic}
+        - If user asks unrelated questions, respond: "I specialize in ${Topic}. Let's focus on that."
+        - Keep responses concise (under 100 words)
+        
+        ${selected.prompt.replace('{user_topic}', Topic)}
+      `;
+    }
+
     const formattedHistory = conversationHistory.map(m => ({
       role: m.role === 'user' ? 'user' : 'model',
       parts: [{ text: m.content }]
     }));
 
-    // 2. We keep a bit more context (last 6 messages) so the AI remembers the flow
-    const recentHistory = formattedHistory.slice(-6);
+    // Keep the last 10 messages for context (increased for better interview flow)
+    const recentHistory = formattedHistory.slice(-10);
 
-    // 3. Construct the full message array including system instructions
     const fullConversation = [
         { role: "user", parts: [{ text: "System Instructions: " + prompt }] },
-        { role: "model", parts: [{ text: "Understood. I will act as the requested assistant." }] },
+        { role: "model", parts: [{ text: "Understood. I am ready." }] },
         ...recentHistory,
-        { role: "user", parts: [{ text: msg }] } // Add the current message
+        { role: "user", parts: [{ text: msg }] } 
     ];
 
     const startTime = Date.now();
 
-    // 4. Call the Gemini API using the recommended gemini-2.5-flash model
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: fullConversation,
         config: {
-            temperature: 0.3 // Lower temperature keeps it focused on the topic
+            temperature: 0.5 // Slightly higher for more creative interview questions
         }
     });
 
@@ -67,12 +93,9 @@ export const AI_Model = async (topic, option, msg, conversationHistory = []) => 
 
   } catch (error) {
     console.error('Gemini API Error:', error);
-
-    // Provide a user-friendly error if the API key is missing
     if (!process.env.NEXT_PUBLIC_GEMINI_API_KEY) {
-        throw new Error('Gemini API key is missing. Please configure it in your environment variables.');
+        throw new Error('Gemini API key is missing.');
     }
-
     throw new Error('AI is currently unavailable. Please try again later.');
   }
 };

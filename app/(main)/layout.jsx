@@ -1,15 +1,17 @@
-import React from 'react'
-import AppHeader from './_components/AppHeader'
+import React from "react";
 
-function DashboardLayout({ children }) {
+import AppHeader from "./_components/AppHeader";
+import DynamicBackground from "@/components/DynamicBackground";
+
+export default function MainLayout({ children }) {
   return (
-    <div>
+    <div className="relative min-h-screen">
+      <DynamicBackground />
+      
       <AppHeader />
-      <div className='p-10 mt-14 md:px-20 lg:px-40 xl:px-60 2xl:px-80'>
-      {children}
-      </div>
+      <main className="relative z-10">
+        {children}
+      </main>
     </div>
-  )
+  );
 }
-
-export default DashboardLayout

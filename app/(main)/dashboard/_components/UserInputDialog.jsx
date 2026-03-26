@@ -9,41 +9,90 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Textarea } from '@/components/ui/textarea'
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import Image from 'next/image'
 import { Experts } from '@/services/Options'
 import { Button } from '@/components/ui/button'
 import { useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
-import { LoaderCircle } from 'lucide-react'
+import { LoaderCircle, UploadCloud } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 function UserInputDialog({ children, options }) {
-    const [selectedExpert, setSelectedExpert] = useState();
-    const [Topic, setTopic] = useState();
-    const createDiscussionRoom = useMutation(api.DiscussionRoom.CreateRoom);
-    const [loading, setloading] = useState(false);
-    const [openDialog, setOpenDialog] = useState(false);
+    const isMockInterview = options?.name === 'Mock Interviews';
     const router = useRouter();
+    const createDiscussionRoom = useMutation(api.DiscussionRoom.CreateRoom);
+
+    // Standard States
+    const [selectedExpert, setSelectedExpert] = useState();
+    const [topic, setTopic] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [openDialog, setOpenDialog] = useState(false);
+
+    // New Mock Interview States
+    const [resumeFile, setResumeFile] = useState(null);
+    const [jdFile, setJdFile] = useState(null);
+    const [jdText, setJdText] = useState('');
+    const [role, setRole] = useState('');
+    const [industry, setIndustry] = useState('');
+
+    // Helper to parse PDF via our new API route
+    const parsePDF = async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch('/api/parse-pdf', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        return data.text;
+    }
 
     const onClickNext = async () => {
-        setloading(true);
-        const result = await createDiscussionRoom({
-            Topic: Topic,
-            Option: options?.name,
-            Assistant: selectedExpert
-        })
-        console.log(result)
-        setloading(false);
-        setOpenDialog(false);
-        router.push('/DiscussionRoom/' + result)
+        setLoading(true);
+        try {
+            let finalResumeText = "";
+            let finalJdText = jdText;
+
+            // If it's a mock interview, we MUST parse the PDFs first
+            if (isMockInterview) {
+                if (resumeFile) {
+                    finalResumeText = await parsePDF(resumeFile);
+                }
+                if (jdFile) {
+                    finalJdText = await parsePDF(jdFile);
+                }
+            }
+
+            const result = await createDiscussionRoom({
+                Topic: isMockInterview ? (role || "General Interview") : topic,
+                Option: options?.name,
+                Assistant: selectedExpert,
+                resumeText: finalResumeText,
+                jdText: finalJdText,
+                role: role,
+                industry: industry
+            });
+
+            setOpenDialog(false);
+            router.push('/DiscussionRoom/' + result);
+        } catch (error) {
+            console.error("Failed to start session:", error);
+            alert("Failed to process files. Please try again.");
+        } finally {
+            setLoading(false);
+        }
     }
+
+    // Validation: Require Topic for normal mode. Require Resume for Mock mode.
+    const isReady = isMockInterview 
+        ? (resumeFile && selectedExpert && !loading) 
+        : (topic && selectedExpert && !loading);
 
     return (
         <Dialog open={openDialog} onOpenChange={setOpenDialog}>
             <DialogTrigger asChild>{children}</DialogTrigger>
             
-            {/* Removed the hardcoded blue bg, replaced with theme-aware styling */}
-            <DialogContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xl sm:max-w-lg">
+            <DialogContent className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xl sm:max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-white">
                         {options.name}
@@ -51,22 +100,82 @@ function UserInputDialog({ children, options }) {
                     <DialogDescription asChild>
                         <div className="mt-4 space-y-6">
                             
-                            {/* Topic Input Section */}
-                            <div>
-                                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-200 mb-2">
-                                    Which topic do you want to cover today?
-                                </h2>
-                                <Textarea 
-                                    placeholder="Waiting patiently for your reply 😊..." 
-                                    className="min-h-[100px] bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus-visible:ring-blue-500"
-                                    onChange={(e) => setTopic(e.target.value)}
-                                />
-                            </div>
+                            {/* --- CONDITIONAL RENDERING BASED ON MODE --- */}
+                            {!isMockInterview ? (
+                                <div>
+                                    <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-200 mb-2">
+                                        Which topic do you want to cover today?
+                                    </h2>
+                                    <Textarea 
+                                        placeholder="E.g., React Hooks, Python Basics, Advanced C++..." 
+                                        className="min-h-[100px] bg-gray-50 dark:bg-gray-800"
+                                        onChange={(e) => setTopic(e.target.value)}
+                                    />
+                                </div>
+                            ) : (
+                                <div className="space-y-4 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-800">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {/* Resume Upload (Required) */}
+                                        <div className="space-y-2">
+                                            <Label className="text-gray-900 dark:text-gray-200 font-semibold flex items-center gap-2">
+                                                Resume (Required) <span className="text-red-500">*</span>
+                                            </Label>
+                                            <Input 
+                                                type="file" 
+                                                accept=".pdf" 
+                                                onChange={(e) => setResumeFile(e.target.files[0])}
+                                                className="cursor-pointer file:bg-blue-50 file:text-blue-700 file:border-0 file:rounded-md file:px-4 file:py-1 hover:file:bg-blue-100"
+                                            />
+                                        </div>
+
+                                        {/* JD Upload (Optional) */}
+                                        <div className="space-y-2">
+                                            <Label className="text-gray-900 dark:text-gray-200 font-semibold">
+                                                Job Description PDF (Optional)
+                                            </Label>
+                                            <Input 
+                                                type="file" 
+                                                accept=".pdf" 
+                                                onChange={(e) => setJdFile(e.target.files[0])}
+                                                className="cursor-pointer file:bg-gray-100 file:text-gray-700 file:border-0 file:rounded-md file:px-4 file:py-1"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* JD Text Fallback */}
+                                    {!jdFile && (
+                                        <div className="space-y-2">
+                                            <Label className="text-gray-900 dark:text-gray-200 font-semibold text-xs text-muted-foreground">
+                                                Or paste the Job Description text here:
+                                            </Label>
+                                            <Textarea 
+                                                placeholder="Paste the requirements, responsibilities, etc..." 
+                                                className="min-h-[80px]"
+                                                onChange={(e) => setJdText(e.target.value)}
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Role & Industry (If no JD provided) */}
+                                    {(!jdFile && !jdText) && (
+                                        <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                            <div className="space-y-2">
+                                                <Label className="text-gray-900 dark:text-gray-200 font-semibold text-sm">Target Role</Label>
+                                                <Input placeholder="e.g. Frontend Developer" onChange={(e) => setRole(e.target.value)} />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-gray-900 dark:text-gray-200 font-semibold text-sm">Industry</Label>
+                                                <Input placeholder="e.g. Fintech, Healthcare" onChange={(e) => setIndustry(e.target.value)} />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             
-                            {/* Expert Selection Section */}
+                            {/* --- EXPERT SELECTION --- */}
                             <div>
                                 <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-200 mb-3 text-center">
-                                    Select your Learning Assistant
+                                    Select your Interviewer
                                 </h2>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                     {Experts.map((expert, index) => (
@@ -96,7 +205,7 @@ function UserInputDialog({ children, options }) {
                                 </div>
                             </div>
 
-                            {/* Action Buttons */}
+                            {/* --- ACTION BUTTONS --- */}
                             <div className="flex gap-3 justify-end pt-4 border-t border-gray-100 dark:border-gray-800">
                                 <DialogClose asChild>
                                     <Button variant="ghost" className="text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
@@ -104,12 +213,12 @@ function UserInputDialog({ children, options }) {
                                     </Button>
                                 </DialogClose>
                                 <Button 
-                                    disabled={!Topic || !selectedExpert || loading} 
+                                    disabled={!isReady} 
                                     onClick={onClickNext}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white min-w-[100px]"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white min-w-[120px]"
                                 >
                                     {loading ? <LoaderCircle className="h-4 w-4 animate-spin mr-2"/> : null}
-                                    {loading ? 'Starting...' : 'Let\'s Go'}
+                                    {loading ? (isMockInterview ? 'Analyzing...' : 'Starting...') : 'Let\'s Go'}
                                 </Button>
                             </div>
                         </div>

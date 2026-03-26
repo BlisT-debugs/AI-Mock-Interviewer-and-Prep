@@ -156,22 +156,12 @@
   opacity: 0.7;
 }
 
-/* --- DYNAMIC AURORA BACKGROUND ANIMATIONS --- */
-@keyframes aurora-1 {
-  0%, 100% { transform: translateY(0) translateX(0) scale(1); }
-  50% { transform: translateY(-50px) translateX(30px) scale(1.05); }
+/* --- DYNAMIC WAVE BACKGROUND ANIMATIONS --- */
+@keyframes wave-flow {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
 
-@keyframes aurora-2 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(50px, 50px) scale(1.1); }
-}
-
-@keyframes aurora-3 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(-50px, 20px) scale(0.95); }
-}
-
-.animate-aurora-1 { animation: aurora-1 12s infinite ease-in-out alternate; }
-.animate-aurora-2 { animation: aurora-2 15s infinite ease-in-out alternate-reverse; }
-.animate-aurora-3 { animation: aurora-3 18s infinite ease-in-out alternate; }
+.animate-wave-slow { animation: wave-flow 30s linear infinite; }
+.animate-wave-med { animation: wave-flow 20s linear infinite; }
+.animate-wave-fast { animation: wave-flow 12s linear infinite; }

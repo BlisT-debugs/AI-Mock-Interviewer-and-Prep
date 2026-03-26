@@ -1,25 +1,34 @@
 import React from 'react';
 
+// A perfectly looping SVG sine wave
+const Wave = ({ className, d }) => (
+  <svg className={className} viewBox="0 0 1000 120" preserveAspectRatio="none" fill="currentColor">
+    <path d={d} />
+  </svg>
+);
+
 export default function DynamicBackground() {
   return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none -z-50 bg-slate-50 dark:bg-slate-950">
+    <div className="fixed inset-0 w-full h-full overflow-hidden pointer-events-none -z-50 bg-slate-50 dark:bg-slate-950 transition-colors duration-500">
       
-      {/* Top Left Aurora - Blue */}
-      <div className="absolute top-[-20%] left-[-10%] w-[50vw] h-[50vw] rounded-full blur-[100px] md:blur-[120px] opacity-60 animate-aurora-1 bg-blue-400/40 dark:bg-blue-600/30"></div>
-      
-      {/* Top Right Aurora - Purple */}
-      <div className="absolute top-[10%] right-[-10%] w-[45vw] h-[45vw] rounded-full blur-[100px] md:blur-[120px] opacity-60 animate-aurora-2 bg-purple-400/40 dark:bg-purple-600/30"></div>
-      
-      {/* Bottom Center Aurora - Indigo */}
-      <div className="absolute bottom-[-20%] left-[20%] w-[60vw] h-[60vw] rounded-full blur-[100px] md:blur-[120px] opacity-60 animate-aurora-3 bg-indigo-400/40 dark:bg-indigo-600/30"></div>
-      
-      {/* Subtle Noise Overlay for a premium glass look */}
-      <div 
-        className="absolute inset-0 opacity-[0.25] dark:opacity-[0.15] mix-blend-overlay"
-        style={{ 
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` 
-        }}
-      ></div>
+      {/* Back Wave (Slowest, Tallest) */}
+      <div className="absolute bottom-0 left-0 flex w-[200%] h-[60vh] animate-wave-slow text-blue-200/50 dark:text-indigo-900/20">
+        <Wave className="w-1/2 h-full" d="M0,50 Q250,0 500,50 T1000,50 L1000,120 L0,120 Z" />
+        <Wave className="w-1/2 h-full" d="M0,50 Q250,0 500,50 T1000,50 L1000,120 L0,120 Z" />
+      </div>
+
+      {/* Middle Wave */}
+      <div className="absolute bottom-0 left-0 flex w-[200%] h-[45vh] animate-wave-med text-blue-300/40 dark:text-blue-900/30">
+        <Wave className="w-1/2 h-full" d="M0,60 Q250,10 500,60 T1000,60 L1000,120 L0,120 Z" />
+        <Wave className="w-1/2 h-full" d="M0,60 Q250,10 500,60 T1000,60 L1000,120 L0,120 Z" />
+      </div>
+
+      {/* Front Wave (Fastest, Shortest) */}
+      <div className="absolute bottom-0 left-0 flex w-[200%] h-[30vh] animate-wave-fast text-blue-400/30 dark:text-sky-800/40">
+        <Wave className="w-1/2 h-full" d="M0,70 Q250,20 500,70 T1000,70 L1000,120 L0,120 Z" />
+        <Wave className="w-1/2 h-full" d="M0,70 Q250,20 500,70 T1000,70 L1000,120 L0,120 Z" />
+      </div>
+
     </div>
   );
 }

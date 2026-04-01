@@ -147,3 +147,63 @@ export const speakText = async (text, voiceId = null) => {
     console.error('speakText error:', error);
   }
 };
+
+// Add this to services/Services.jsx
+
+// Add this at the bottom of services/Services.jsx
+
+export const GenerateInterviewFeedback = async (conversationHistory, role) => {
+  try {
+    const transcriptText = conversationHistory
+      .filter(msg => msg.role !== 'system' && msg.content !== '...')
+      .map(msg => `${msg.role === 'user' ? 'Candidate' : 'Interviewer'}: ${msg.content}`)
+      .join('\n\n');
+
+    if (!transcriptText.trim()) return null;
+
+    const prompt = `
+      You are an expert Technical Hiring Manager.
+      Review the following transcript of a mock interview for a ${role || 'candidate'}.
+      
+      Format your response strictly as a JSON object with this exact structure:
+      {
+        "overallScore": 85, // overall performance score out of 100
+        "generalFeedback": "A short paragraph summarizing their performance.",
+        "strengths": ["Strong understanding of React", "Good communication"],
+        "weaknesses": ["Hesitated on system design"],
+        "questionAnalysis": [
+
+          {
+            "question": "The interviewer's question",
+            "userAnswer": "The candidate's answer",
+            "rating": 7, // rating for this answer out of 10
+            "feedback": "Specific feedback on this answer",
+            "idealAnswer": "What a perfect answer would have been"
+          }
+        ]
+      }
+      
+      TRANSCRIPT:
+      ${transcriptText}
+    `;
+
+    // Note: Re-using the 'ai' instance you already initialized at the top of the file
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: { 
+            temperature: 0.2,
+            responseMimeType: "application/json" // THIS IS THE MAGIC FIX. It forces pure JSON.
+        }
+    });
+
+    const resultText = response.text;
+    console.log("Raw Gemini Feedback:", resultText); // Added a log so you can see it working!
+    
+    return JSON.parse(resultText);
+
+  } catch (error) {
+    console.error('Feedback Generation Error:', error);
+    return null;
+  }
+};

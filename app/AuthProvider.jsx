@@ -9,15 +9,10 @@ function AuthProvider({ children }) {
     const createUser = useMutation(api.users.CreateUser);
 
     useEffect(() => {
-        console.log("user", user);
         if (user?.primaryEmail && user?.displayName) {
             createUser({
                 email: user.primaryEmail,
                 name: user.displayName
-            }).then(res => {
-                console.log("User created:", res);
-            }).catch(err => {
-                console.log("Error creating user:", err);
             });
         }
     }, [user, createUser]);

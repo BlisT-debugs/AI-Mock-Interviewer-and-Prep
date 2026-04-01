@@ -62,15 +62,23 @@ export const GetUserRooms = query({
 export const UpdateConversation = mutation({
     args: {
         id: v.id('DiscussionRoom'),
-        conversation: v.array(v.any()),
+        conversation: v.optional(v.array(v.any())), // Made optional
         completed: v.optional(v.boolean()),
-        lastUpdated: v.optional(v.number())
+        lastUpdated: v.optional(v.number()),
+        
+        // Accept the feedback report ---
+        feedbackReport: v.optional(v.any()),
     },
     handler: async (ctx, args) => {
-        await ctx.db.patch(args.id, {
-            conversation: args.conversation,
+        // Build an update object dynamically based on what was passed in
+        const updateData = {
             lastUpdated: args.lastUpdated || Date.now(),
-            ...(args.completed !== undefined && { completed: args.completed })
-        });
+        };
+
+        if (args.conversation !== undefined) updateData.conversation = args.conversation;
+        if (args.completed !== undefined) updateData.completed = args.completed;
+        if (args.feedbackReport !== undefined) updateData.feedbackReport = args.feedbackReport;
+
+        await ctx.db.patch(args.id, updateData);
     }
 });

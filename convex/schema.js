@@ -11,16 +11,20 @@ export default defineSchema({
         Option: v.string(),
         Assistant: v.string(),
         userId: v.union(v.string(), v.null()),
-        
         Topic: v.optional(v.string()), 
-
+        
+        // Context Fields
         resumeText: v.optional(v.string()),
         jdText: v.optional(v.string()),
         role: v.optional(v.string()),
         industry: v.optional(v.string()),
-
+        
+        // Session Data
         conversation: v.optional(v.any()),
         completed: v.optional(v.boolean()),    
-        lastUpdated: v.optional(v.number())
+        lastUpdated: v.optional(v.number()),
+
+        // The AI Performance Analysis 
+        feedbackReport: v.optional(v.any()),
     }),
-})
+});

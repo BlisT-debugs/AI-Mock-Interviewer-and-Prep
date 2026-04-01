@@ -62,23 +62,26 @@ export const GetUserRooms = query({
 export const UpdateConversation = mutation({
     args: {
         id: v.id('DiscussionRoom'),
-        conversation: v.optional(v.array(v.any())), // Made optional
+        conversation: v.optional(v.array(v.any())),
         completed: v.optional(v.boolean()),
         lastUpdated: v.optional(v.number()),
         
-        // Accept the feedback report ---
-        feedbackReport: v.optional(v.any()),
+        // Let the argument through the gate
+        feedbackReport: v.optional(v.any()) 
     },
     handler: async (ctx, args) => {
-        // Build an update object dynamically based on what was passed in
+        // Build the update object dynamically
         const updateData = {
             lastUpdated: args.lastUpdated || Date.now(),
         };
 
         if (args.conversation !== undefined) updateData.conversation = args.conversation;
         if (args.completed !== undefined) updateData.completed = args.completed;
+        
+        // THIS IS THE CRITICAL LINE THAT WAS MISSING OR FAILING!
         if (args.feedbackReport !== undefined) updateData.feedbackReport = args.feedbackReport;
 
+        // Force the database to patch it
         await ctx.db.patch(args.id, updateData);
     }
 });

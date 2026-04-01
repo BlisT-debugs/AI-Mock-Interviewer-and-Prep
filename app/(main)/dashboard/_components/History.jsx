@@ -48,7 +48,7 @@ export default function History() {
 
 // Sub-component to display the detailed feedback in a modal
 function FeedbackModal({ report, role }) {
-  if (!report || !report.overallScore) return null;
+  if (!report) return null;
 
   const scoreColor = report.overallScore >= 80 ? "text-green-600" : report.overallScore >= 60 ? "text-yellow-600" : "text-red-600";
   const progressColor = report.overallScore >= 80 ? "bg-green-600" : report.overallScore >= 60 ? "bg-yellow-500" : "bg-red-500";

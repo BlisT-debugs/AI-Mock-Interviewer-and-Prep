@@ -167,16 +167,15 @@ export const GenerateInterviewFeedback = async (conversationHistory, role) => {
       
       Format your response strictly as a JSON object with this exact structure:
       {
-        "overallScore": 85, // overall performance score out of 100
+        "overallScore": 85,
         "generalFeedback": "A short paragraph summarizing their performance.",
         "strengths": ["Strong understanding of React", "Good communication"],
         "weaknesses": ["Hesitated on system design"],
         "questionAnalysis": [
-
           {
             "question": "The interviewer's question",
             "userAnswer": "The candidate's answer",
-            "rating": 7, // rating for this answer out of 10
+            "rating": 7,
             "feedback": "Specific feedback on this answer",
             "idealAnswer": "What a perfect answer would have been"
           }
@@ -187,20 +186,37 @@ export const GenerateInterviewFeedback = async (conversationHistory, role) => {
       ${transcriptText}
     `;
 
-    // Note: Re-using the 'ai' instance you already initialized at the top of the file
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: prompt,
         config: { 
-            temperature: 0.2,
-            responseMimeType: "application/json" // THIS IS THE MAGIC FIX. It forces pure JSON.
+            temperature: 0.1, // Lower temp for strict JSON
+            responseMimeType: "application/json" 
         }
     });
 
-    const resultText = response.text;
-    console.log("Raw Gemini Feedback:", resultText); // Added a log so you can see it working!
+    let resultText = response.text;
+    console.log("Raw Gemini Feedback:", resultText); 
     
-    return JSON.parse(resultText);
+    // --- THE FIX: BULLETPROOF SCRUBBER ---
+    try {
+      // 1. Strip hidden markdown backticks if they exist
+      resultText = resultText.replace(/```json\n?|```/g, '');
+      
+      // 2. Remove illegal Non-Breaking Spaces (this is what caused your crash!)
+      resultText = resultText.replace(/\u00A0/g, ' ');
+
+      // 3. Remove illegal trailing commas
+      resultText = resultText.replace(/,(?=\s*[\}\]])/g, '');
+
+      const parsedReport = JSON.parse(resultText.trim());
+      console.log("✅ JSON Successfully Parsed!"); 
+      return parsedReport;
+      
+    } catch (parseError) {
+      console.error("❌ JSON Parsing Failed! The scrubber missed something:", parseError);
+      return null;
+    }
 
   } catch (error) {
     console.error('Feedback Generation Error:', error);

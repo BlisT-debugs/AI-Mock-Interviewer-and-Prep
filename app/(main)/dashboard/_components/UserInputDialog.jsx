@@ -1,3 +1,4 @@
+import { useUser } from '@stackframe/stack'
 import React, { useState } from 'react'
 import {
   Dialog,
@@ -20,6 +21,7 @@ import { LoaderCircle, UploadCloud } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 function UserInputDialog({ children, options }) {
+    const user = useUser();
     const isMockInterview = options?.name === 'Mock Interviews';
     const router = useRouter();
     const createDiscussionRoom = useMutation(api.DiscussionRoom.CreateRoom);
@@ -48,34 +50,30 @@ function UserInputDialog({ children, options }) {
     }
 
     const onClickNext = async () => {
-        setLoading(true);
-        try {
-            let finalResumeText = "";
-            let finalJdText = jdText;
+    setLoading(true);
+    try {
+        let finalResumeText = "";
+        let finalJdText = jdText;
 
-            // If it's a mock interview, we MUST parse the PDFs first
-            if (isMockInterview) {
-                if (resumeFile) {
-                    finalResumeText = await parsePDF(resumeFile);
-                }
-                if (jdFile) {
-                    finalJdText = await parsePDF(jdFile);
-                }
-            }
+        if (isMockInterview) {
+            if (resumeFile) finalResumeText = await parsePDF(resumeFile);
+            if (jdFile) finalJdText = await parsePDF(jdFile);
+        }
 
-            const result = await createDiscussionRoom({
-                Topic: isMockInterview ? (role || "General Interview") : topic,
-                Option: options?.name,
-                Assistant: selectedExpert,
-                resumeText: finalResumeText,
-                jdText: finalJdText,
-                role: role,
-                industry: industry
-            });
+        const result = await createDiscussionRoom({
+            Topic: isMockInterview ? (role || "General Interview") : topic,
+            Option: options?.name,
+            Assistant: selectedExpert,
+            resumeText: finalResumeText,
+            jdText: finalJdText,
+            role: role,
+            industry: industry,
+            userId: user?.id 
+        });
 
-            setOpenDialog(false);
-            router.push('/DiscussionRoom/' + result);
-        } catch (error) {
+        setOpenDialog(false);
+        router.push('/DiscussionRoom/' + result);
+    } catch (error) {
             console.error("Failed to start session:", error);
             alert("Failed to process files. Please try again.");
         } finally {

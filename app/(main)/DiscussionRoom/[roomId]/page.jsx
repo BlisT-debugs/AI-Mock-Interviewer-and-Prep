@@ -240,18 +240,18 @@ const endSession = useCallback(async () => {
       stopRecording();
       setIsConnected(false);
       setShouldBeConnected(false);
-      setIsSaving(true); // Triggers the loading spinner on the button
+      setIsSaving(true); 
 
       try {
         let feedbackReport = null;
         
-        // Ensure they had enough of a conversation to grade
-        if (RoomData?.Option === "Mock Interviews" && conversation.length > 2) {
+        // Changed > 2 to >= 2 so even very short interviews get graded!
+        if (RoomData?.Option === "Mock Interviews" && conversation.length >= 2) {
            feedbackReport = await GenerateInterviewFeedback(conversation, RoomData?.role);
            
-           // If it failed, warn the user
+           // THE FIX: A loud alert if parsing fails so we aren't left guessing
            if (!feedbackReport) {
-             alert("We couldn't generate the AI feedback for this session. Saving the chat history anyway.");
+             alert("❌ ERROR: The AI generated the report, but the JSON formatting was broken. Check the console.");
            }
         }
 
@@ -260,7 +260,7 @@ const endSession = useCallback(async () => {
           conversation,
           completed: true,
           lastUpdated: Date.now(),
-          feedbackReport: feedbackReport || undefined // Pass undefined if null so Convex doesn't complain
+          feedbackReport: feedbackReport || undefined
         });
 
         router.push("/dashboard");

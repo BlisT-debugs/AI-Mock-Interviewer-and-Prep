@@ -5,8 +5,8 @@ import { WelcomeSection } from '@/components/WelcomeSection';
 import { FeatureCards } from '@/components/FeatureCards';
 import { StatsCards } from '@/components/StatsCards';
 import { ActivitySection } from '@/components/ActivitySection';
-import { FeedbackSection } from '@/components/FeedbackSection';
 import { useUser } from '@stackframe/stack';    
+import Feedback from './_components/Feedback';
 
 
 export function Dashboard() {
@@ -28,7 +28,7 @@ export function Dashboard() {
         {/* Activity and Feedback Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <ActivitySection />
-          <FeedbackSection />
+          <Feedback />
         </div>
       </main>
     </div>

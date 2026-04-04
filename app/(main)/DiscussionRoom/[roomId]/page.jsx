@@ -6,7 +6,7 @@ import { useQuery, useMutation } from "convex/react";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { AI_Model, speakText, GenerateInterviewFeedback } from "@/services/Services";
+import { AI_Model, speakText, GenerateInterviewFeedback, GenerateStudyGuide } from "@/services/Services";
 import { useUser } from "@stackframe/stack";
 
 
@@ -236,7 +236,7 @@ function DiscussionRoomContent() {
   };
 
 const endSession = useCallback(async () => {
-    if (window.confirm("End interview and generate feedback? This will take a few seconds.")) {
+    if (window.confirm("End session and generate your AI summary? This will take a few seconds.")) {
       stopRecording();
       setIsConnected(false);
       setShouldBeConnected(false);
@@ -244,29 +244,35 @@ const endSession = useCallback(async () => {
 
       try {
         let feedbackReport = null;
+        let studyGuide = null; // New variable to hold our notes
         
-        // Changed > 2 to >= 2 so even very short interviews get graded!
-        if (RoomData?.Option === "Mock Interviews" && conversation.length >= 2) {
-           feedbackReport = await GenerateInterviewFeedback(conversation, RoomData?.role);
-           
-           // THE FIX: A loud alert if parsing fails so we aren't left guessing
-           if (!feedbackReport) {
-             alert("❌ ERROR: The AI generated the report, but the JSON formatting was broken. Check the console.");
-           }
+        if (conversation.length >= 2) {
+            // If it's a Mock Interview, grade it
+            if (RoomData?.Option === "Mock Interviews") {
+               feedbackReport = await GenerateInterviewFeedback(conversation, RoomData?.role);
+               if (!feedbackReport) alert("❌ ERROR: The AI generated the report, but the JSON formatting was broken.");
+            } 
+            // If it's anything else (Topic Learning, Lecture), build a Study Guide!
+            else {
+               studyGuide = await GenerateStudyGuide(conversation, RoomData?.Topic);
+               if (!studyGuide) alert("❌ ERROR: Could not generate the study guide. Check the console.");
+            }
         }
 
+        // Save everything to the database
         await updateConversation({
           id: roomId,
           conversation,
           completed: true,
           lastUpdated: Date.now(),
-          feedbackReport: feedbackReport || undefined
+          feedbackReport: feedbackReport || undefined,
+          studyGuide: studyGuide || undefined // Send the guide to Convex!
         });
 
         router.push("/dashboard");
       } catch (err) {
         console.error("End session error", err);
-        alert("Something went wrong saving your feedback.");
+        alert("Something went wrong saving your session.");
         setIsSaving(false);
       }
     }

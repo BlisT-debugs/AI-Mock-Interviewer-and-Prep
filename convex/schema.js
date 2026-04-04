@@ -26,5 +26,6 @@ export default defineSchema({
 
         // The AI Performance Analysis 
         feedbackReport: v.optional(v.any()),
+        studyGuide: v.optional(v.any())
     }),
 });

@@ -6,7 +6,7 @@ import { FeatureCards } from '@/components/FeatureCards';
 import { StatsCards } from '@/components/StatsCards';
 import { ActivitySection } from '@/components/ActivitySection';
 import { useUser } from '@stackframe/stack';    
-import Feedback from './_components/Feedback';
+import Feedback from '@/components/FeedbackSection';
 
 
 export function Dashboard() {

@@ -66,8 +66,8 @@ export const UpdateConversation = mutation({
         completed: v.optional(v.boolean()),
         lastUpdated: v.optional(v.number()),
         
-        // Let the argument through the gate
-        feedbackReport: v.optional(v.any()) 
+        feedbackReport: v.optional(v.any()),
+        studyGuide: v.optional(v.any())
     },
     handler: async (ctx, args) => {
         // Build the update object dynamically
@@ -80,6 +80,8 @@ export const UpdateConversation = mutation({
         
         // THIS IS THE CRITICAL LINE THAT WAS MISSING OR FAILING!
         if (args.feedbackReport !== undefined) updateData.feedbackReport = args.feedbackReport;
+
+        if (args.studyGuide !== undefined) updateData.studyGuide = args.studyGuide;
 
         // Force the database to patch it
         await ctx.db.patch(args.id, updateData);

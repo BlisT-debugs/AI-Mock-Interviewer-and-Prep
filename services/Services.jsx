@@ -223,3 +223,62 @@ export const GenerateInterviewFeedback = async (conversationHistory, role) => {
     return null;
   }
 };
+
+export const GenerateStudyGuide = async (conversationHistory, topic) => {
+  try {
+    const transcriptText = conversationHistory
+      .filter(msg => msg.role !== 'system' && msg.content !== '...')
+      .map(msg => `${msg.role === 'user' ? 'Student' : 'Tutor'}: ${msg.content}`)
+      .join('\n\n');
+
+    if (!transcriptText.trim()) return null;
+
+    const prompt = `
+      You are an expert AI Tutor. Review the following transcript of a tutoring session about "${topic}".
+      Create a structured study guide based ONLY on what was discussed in the transcript.
+      
+      Format your response strictly as a JSON object with this exact structure:
+      {
+        "topic": "The main topic discussed",
+        "summary": "A 2-3 sentence overview of the lesson.",
+        "keyConcepts": [
+          { "term": "Concept Name", "definition": "Clear, concise definition based on the chat" }
+        ],
+        "quiz": [
+          { "question": "A quick test question about a discussed concept", "answer": "The correct answer" }
+        ]
+      }
+      
+      TRANSCRIPT:
+      ${transcriptText}
+    `;
+
+    // We reuse the existing 'ai' instance
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: { 
+            temperature: 0.2, 
+            responseMimeType: "application/json" 
+        }
+    });
+
+    let resultText = response.text;
+    
+    // Bulletproof Scrubber
+    try {
+      resultText = resultText.replace(/```json\n?|```/g, '');
+      resultText = resultText.replace(/\u00A0/g, ' ');
+      resultText = resultText.replace(/,(?=\s*[\}\]])/g, '');
+      
+      return JSON.parse(resultText.trim());
+    } catch (parseError) {
+      console.error("Study Guide JSON Parse Failed:", parseError);
+      return null;
+    }
+
+  } catch (error) {
+    console.error('Study Guide Generation Error:', error);
+    return null;
+  }
+};

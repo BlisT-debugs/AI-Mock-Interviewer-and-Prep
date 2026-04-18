@@ -156,6 +156,10 @@ function DiscussionRoomContent() {
       const recognition = createSpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
+      
+      // Force specific language context. 
+      // Use 'en-IN' if you have an Indian accent, or 'en-US' for American. 
+      recognition.lang = 'en-US'; 
 
       recognition.onresult = (event) => {
         clearTimeout(silenceTimerRef.current);
@@ -172,7 +176,6 @@ function DiscussionRoomContent() {
             setTranscript(currentMessageRef.current + interim);
           }
         }
-
         silenceTimerRef.current = setTimeout(() => {
           const finalText = currentMessageRef.current.trim();
           if (finalText) {
@@ -181,7 +184,7 @@ function DiscussionRoomContent() {
             currentMessageRef.current = "";
             setTranscript("");
           }
-        }, 2000); 
+        }, 5000); 
       };
 
       recognition.onerror = (e) => {
@@ -305,9 +308,6 @@ const endSession = useCallback(async () => {
     }
   }, [conversation]);
 
-  if (!user || !RoomData) {
-    return <div className="flex justify-center items-center h-screen text-blue-800 font-semibold text-xl">Loading Room...</div>;
-  }
   // AUTOSAVE
   useEffect(() => {
     // auto-save if there is actually a conversation happening
@@ -322,6 +322,39 @@ const endSession = useCallback(async () => {
     }
   }, [conversation, saveConversation]);
 
+  // --- ROBUST AUTO-END INTERCEPTOR ---
+  useEffect(() => {
+    if (conversation.length > 0) {
+      const lastMsg = conversation[conversation.length - 1];
+
+      // Check if the AI just outputted our secret token
+      if (lastMsg.role === 'assistant' && lastMsg.content.includes('[END_INTERVIEW]')) {
+        
+        // 1. Clean the secret token out of the text so the user never sees it
+        const cleanContent = lastMsg.content.replace('[END_INTERVIEW]', '').trim();
+
+        // 2. Silently update the conversation history to remove the token visually
+        if (typeof setConversation === 'function') {
+           setConversation(prev => {
+             const updated = [...prev];
+             updated[updated.length - 1].content = cleanContent;
+             return updated;
+           });
+        }
+
+        // 3. Automatically trigger the end session process after a 3-second delay 
+        // (This gives the user time to hear/read the AI's final goodbye!)
+        setTimeout(() => {
+            endSession();
+        }, 3000); 
+      }
+    }
+  }, [conversation, endSession]);
+
+  if (!user || !RoomData) {
+    return <div className="flex justify-center items-center h-screen text-blue-800 font-semibold text-xl">Loading Room...</div>;
+  }
+  
   // --- UI LAYOUT LOGIC ---
   const isMockInterview = RoomData.Option === "Mock Interviews";
   const lastAssistantMessage = conversation.filter(msg => msg.role === 'assistant' && msg.content !== '...').pop();
@@ -331,24 +364,24 @@ const endSession = useCallback(async () => {
     <div className="max-w-6xl mx-auto p-4 h-screen flex flex-col bg-transparent">
       
       {/* Universal Header */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-blue-800 dark:text-blue-300">
+      <div className="flex justify-between items-center mb-6 w-full">
+        <h1 className="text-2xl md:text-3xl font-bold text-blue-800 dark:text-blue-300 truncate pr-4">
           {isMockInterview ? "Live Interview" : "AI Assistant"}
         </h1>
-        <div className="flex items-center space-x-4">
+        {/* Fixed Button Container */}
+        <div className="flex items-center space-x-3 shrink-0">
           <Button
             onClick={endSession}
-            variant="ghost"
-            className="px-6 py-3 rounded-full shadow-md border bg-white/50 border-gray-300 hover:bg-gray-100 transition-all group"
-            disabled={isSaving}
+            variant="outline"
+            className="px-4 md:px-6 py-3 rounded-full shadow-sm border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 transition-all font-semibold"
           >
-            {isSaving ? "Saving..." : "End Session"}
+            End Session
           </Button>
           
           <Button
             onClick={toggleConnection}
-            className={`px-6 py-3 rounded-full shadow-md transition-all hover:scale-105 ${
-              isConnected ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-600 hover:bg-blue-700'
+            className={`px-4 md:px-6 py-3 rounded-full shadow-md transition-all hover:scale-105 font-bold ${
+              isConnected ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'
             }`}
             disabled={isAiResponding || isSpeaking}
           >

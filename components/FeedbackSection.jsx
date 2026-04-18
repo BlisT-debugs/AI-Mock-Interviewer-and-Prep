@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, Star, TrendingUp, AlertCircle, LayoutDashboard, ListChecks } from 'lucide-react';
+import { MessageSquare, Star, TrendingUp, AlertCircle, LayoutDashboard, ListChecks, Download, Loader2 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
@@ -182,15 +183,37 @@ export default function Feedback() {
 }
 
 // -------------------------------------------------------------
-// The NEW Detailed Analysis Modal (Massive Box + Tabs)
+// The Detailed Analysis Modal
 // -------------------------------------------------------------
 function FeedbackModal({ report, role }) {
   const [activeTab, setActiveTab] = useState("overview");
+  const [isExporting, setIsExporting] = useState(false);
+  const printRef = useRef(null);
 
   if (!report) return null;
 
   const scoreColor = report.overallScore >= 80 ? "text-green-600" : report.overallScore >= 60 ? "text-yellow-600" : "text-red-600";
   const progressColor = report.overallScore >= 80 ? "bg-green-600" : report.overallScore >= 60 ? "bg-yellow-500" : "bg-red-500";
+
+  // The Modern Print/PDF Hook
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,            
+    documentTitle: `${role?.replace(/\s+/g, '_') || 'Interview'}_Report`,
+    onAfterPrint: () => setIsExporting(false),
+  });
+
+  const downloadPDF = () => {
+    setIsExporting(true); // Trigger both tabs to show
+    
+    // Give React 300ms to open the hidden tabs, then trigger the print dialog
+    setTimeout(() => {
+      handlePrint();
+    }, 300);
+  };
+
+  // If exporting, show both. Otherwise, obey the active tab.
+  const showOverview = activeTab === "overview" || isExporting;
+  const showQa = activeTab === "qa" || isExporting;
 
   return (
     <Dialog>
@@ -200,21 +223,30 @@ function FeedbackModal({ report, role }) {
         </Button>
       </DialogTrigger>
       
-      {/* THE FIX: max-w-6xl w-[95vw] h-[90vh] makes this nearly full screen! */}
-      <DialogContent className="sm:max-w-[90vw] md:max-w-6xl h-[90vh] p-0 overflow-hidden bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border-0 flex flex-col">        
-        {/* Sticky Header with Tabs */}
+      <DialogContent className="max-w-6xl w-[95vw] h-[90vh] p-0 overflow-hidden bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border-0 flex flex-col">
+        
+        {/* Sticky Header with Tabs & Download Button */}
         <div className="px-8 pt-8 pb-0 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
-          <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white mb-6">
-            Performance Analysis: <span className="text-blue-600">{role || "Mock Interview"}</span>
-          </DialogTitle>
+          <div className="flex justify-between items-start mb-6">
+            <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white">
+              Performance Analysis: <span className="text-blue-600">{role || "Mock Interview"}</span>
+            </DialogTitle>
+
+            <Button 
+                onClick={downloadPDF} 
+                disabled={isExporting}
+                className="bg-gray-900 hover:bg-gray-800 text-white shadow-md transition-all"
+            >
+              {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+              {isExporting ? 'Preparing PDF...' : 'Download Report'}
+            </Button>
+          </div>
           
           <div className="flex gap-8">
             <button 
               onClick={() => setActiveTab("overview")}
               className={`pb-4 px-2 text-base font-bold border-b-4 transition-colors flex items-center gap-2 ${
-                activeTab === "overview" 
-                  ? "border-blue-600 text-blue-600" 
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                activeTab === "overview" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
               <LayoutDashboard className="w-5 h-5" />
@@ -223,9 +255,7 @@ function FeedbackModal({ report, role }) {
             <button 
               onClick={() => setActiveTab("qa")}
               className={`pb-4 px-2 text-base font-bold border-b-4 transition-colors flex items-center gap-2 ${
-                activeTab === "qa" 
-                  ? "border-blue-600 text-blue-600" 
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                activeTab === "qa" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
               <ListChecks className="w-5 h-5" />
@@ -234,147 +264,154 @@ function FeedbackModal({ report, role }) {
           </div>
         </div>
 
-        {/* Scrollable Content Area */}
+        {/* Scrollable Content Area. Added printRef here! */}
         <div className="flex-1 overflow-y-auto p-8 bg-gray-50/50 dark:bg-gray-900/50">
-          
-          {/* TAB 1: OVERVIEW */}
-          {activeTab === "overview" && (
-            <div className="space-y-8 animate-in fade-in duration-500 max-w-5xl mx-auto">
+          <div 
+            ref={printRef} 
+            className="max-w-5xl mx-auto space-y-8 pb-10 bg-gray-50/50 dark:bg-gray-900/50"
+            style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }} // Forces backgrounds to print!
+          >
               
-              {/* Spaced out Top Section */}
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                {/* Big Overall Score Card */}
-                <div className="col-span-1 lg:col-span-1 bg-white dark:bg-gray-800 rounded-2xl p-8 flex flex-col items-center justify-center border border-gray-100 dark:border-gray-700 shadow-sm">
-                  <span className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Overall Score</span>
-                  <div className={`text-7xl font-black ${scoreColor} mb-6 tracking-tighter`}>
-                    {report.overallScore}<span className="text-3xl text-gray-300">/100</span>
-                  </div>
-                  <Progress value={report.overallScore} className="h-3 w-full bg-gray-100 dark:bg-gray-700" indicatorClassName={progressColor} />
-                </div>
-                
-                {/* 3 Metric Bars with vast breathing room */}
-                <div className="col-span-1 lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl p-8 border border-blue-100 dark:border-blue-900/50 flex flex-col justify-center">
-                        <div className="flex justify-between items-end mb-4">
-                            <span className="text-sm font-bold text-blue-800 dark:text-blue-400 uppercase tracking-wide">Technical</span>
-                            <span className="text-2xl font-black text-blue-600 dark:text-blue-300">{report.technicalScore || report.overallScore}%</span>
-                        </div>
-                        <Progress value={report.technicalScore || report.overallScore} className="h-3 bg-blue-100 dark:bg-blue-950" indicatorClassName="bg-blue-500" />
+              {/* TAB 1: OVERVIEW */}
+              {showOverview && (
+                <div className="space-y-8 animate-in fade-in duration-500">
+                  
+                  {isExporting && (
+                      <h1 className="text-4xl font-black text-gray-900 mb-8 pb-4 border-b-2 border-gray-200">
+                          Interview Assessment: <span className="text-blue-600">{role || "Candidate"}</span>
+                      </h1>
+                  )}
+
+                  <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                    <div className="col-span-1 lg:col-span-1 bg-white dark:bg-gray-800 rounded-2xl p-8 flex flex-col items-center justify-center border border-gray-100 dark:border-gray-700 shadow-sm">
+                      <span className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Overall Score</span>
+                      <div className={`text-7xl font-black ${scoreColor} mb-6 tracking-tighter`}>
+                        {report.overallScore}<span className="text-3xl text-gray-300">/100</span>
+                      </div>
+                      <Progress value={report.overallScore} className="h-3 w-full bg-gray-100 dark:bg-gray-700" indicatorClassName={progressColor} />
                     </div>
                     
-                    <div className="bg-purple-50/50 dark:bg-purple-900/10 rounded-2xl p-8 border border-purple-100 dark:border-purple-900/50 flex flex-col justify-center">
-                        <div className="flex justify-between items-end mb-4">
-                            <span className="text-sm font-bold text-purple-800 dark:text-purple-400 uppercase tracking-wide">Communication</span>
-                            <span className="text-2xl font-black text-purple-600 dark:text-purple-300">{report.communicationScore || report.overallScore}%</span>
+                    <div className="col-span-1 lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl p-8 border border-blue-100 dark:border-blue-900/50 flex flex-col justify-center">
+                            <div className="flex justify-between items-end mb-4">
+                                <span className="text-sm font-bold text-blue-800 dark:text-blue-400 uppercase tracking-wide">Technical</span>
+                                <span className="text-2xl font-black text-blue-600 dark:text-blue-300">{report.technicalScore || report.overallScore}%</span>
+                            </div>
+                            <Progress value={report.technicalScore || report.overallScore} className="h-3 bg-blue-100 dark:bg-blue-950" indicatorClassName="bg-blue-500" />
                         </div>
-                        <Progress value={report.communicationScore || report.overallScore} className="h-3 bg-purple-100 dark:bg-purple-950" indicatorClassName="bg-purple-500" />
+                        
+                        <div className="bg-purple-50/50 dark:bg-purple-900/10 rounded-2xl p-8 border border-purple-100 dark:border-purple-900/50 flex flex-col justify-center">
+                            <div className="flex justify-between items-end mb-4">
+                                <span className="text-sm font-bold text-purple-800 dark:text-purple-400 uppercase tracking-wide">Communication</span>
+                                <span className="text-2xl font-black text-purple-600 dark:text-purple-300">{report.communicationScore || report.overallScore}%</span>
+                            </div>
+                            <Progress value={report.communicationScore || report.overallScore} className="h-3 bg-purple-100 dark:bg-purple-950" indicatorClassName="bg-purple-500" />
+                        </div>
+
+                        <div className="bg-orange-50/50 dark:bg-orange-900/10 rounded-2xl p-8 border border-orange-100 dark:border-orange-900/50 flex flex-col justify-center">
+                            <div className="flex justify-between items-end mb-4">
+                                <span className="text-sm font-bold text-orange-800 dark:text-orange-400 uppercase tracking-wide">Confidence</span>
+                                <span className="text-2xl font-black text-orange-600 dark:text-orange-300">{report.confidenceScore || report.overallScore}%</span>
+                            </div>
+                            <Progress value={report.confidenceScore || report.overallScore} className="h-3 bg-orange-100 dark:bg-orange-950" indicatorClassName="bg-orange-500" />
+                        </div>
                     </div>
+                  </div>
 
-                    <div className="bg-orange-50/50 dark:bg-orange-900/10 rounded-2xl p-8 border border-orange-100 dark:border-orange-900/50 flex flex-col justify-center">
-                        <div className="flex justify-between items-end mb-4">
-                            <span className="text-sm font-bold text-orange-800 dark:text-orange-400 uppercase tracking-wide">Confidence</span>
-                            <span className="text-2xl font-black text-orange-600 dark:text-orange-300">{report.confidenceScore || report.overallScore}%</span>
-                        </div>
-                        <Progress value={report.confidenceScore || report.overallScore} className="h-3 bg-orange-100 dark:bg-orange-950" indicatorClassName="bg-orange-500" />
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-100 dark:border-gray-700 shadow-sm">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                      <MessageSquare className="w-6 h-6 text-blue-500" />
+                      Executive Summary
+                    </h3>
+                    <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg">
+                      {report.generalFeedback}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="bg-green-50/50 dark:bg-green-900/10 rounded-2xl p-8 border border-green-200 dark:border-green-900/30 shadow-sm">
+                      <h3 className="flex items-center text-xl font-bold text-green-800 dark:text-green-400 mb-6">
+                        Top Strengths
+                      </h3>
+                      <ul className="space-y-4">
+                        {report.strengths?.map((strength, i) => (
+                          <li key={i} className="flex items-start text-green-900 dark:text-green-300 font-medium text-lg">
+                            <div className="w-2 h-2 rounded-full bg-green-500 mt-2.5 mr-4 shrink-0"></div>
+                            <span className="leading-relaxed">{strength}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                </div>
-              </div>
-
-              {/* Summary */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-100 dark:border-gray-700 shadow-sm">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-                  <MessageSquare className="w-6 h-6 text-blue-500" />
-                  Executive Summary
-                </h3>
-                <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg">
-                  {report.generalFeedback}
-                </p>
-              </div>
-
-              {/* Strengths & Weaknesses */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="bg-green-50/50 dark:bg-green-900/10 rounded-2xl p-8 border border-green-200 dark:border-green-900/30 shadow-sm">
-                  <h3 className="flex items-center text-xl font-bold text-green-800 dark:text-green-400 mb-6">
-                    Top Strengths
-                  </h3>
-                  <ul className="space-y-4">
-                    {report.strengths?.map((strength, i) => (
-                      <li key={i} className="flex items-start text-green-900 dark:text-green-300 font-medium text-lg">
-                        <div className="w-2 h-2 rounded-full bg-green-500 mt-2.5 mr-4 shrink-0"></div>
-                        <span className="leading-relaxed">{strength}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                
-                <div className="bg-red-50/50 dark:bg-red-900/10 rounded-2xl p-8 border border-red-200 dark:border-red-900/30 shadow-sm">
-                  <h3 className="flex items-center text-xl font-bold text-red-800 dark:text-red-400 mb-6">
-                    Areas for Improvement
-                  </h3>
-                  <ul className="space-y-4">
-                    {report.weaknesses?.map((weakness, i) => (
-                      <li key={i} className="flex items-start text-red-900 dark:text-red-300 font-medium text-lg">
-                        <div className="w-2 h-2 rounded-full bg-red-500 mt-2.5 mr-4 shrink-0"></div>
-                        <span className="leading-relaxed">{weakness}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: Q&A ANALYSIS */}
-          {activeTab === "qa" && (
-            <div className="animate-in fade-in duration-500 max-w-5xl mx-auto">
-              {report.questionAnalysis && report.questionAnalysis.length > 0 ? (
-                <Accordion type="single" collapsible className="w-full space-y-6">
-                  {report.questionAnalysis.map((qa, i) => (
-                    <AccordionItem value={`item-${i}`} key={i} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 shadow-sm overflow-hidden">
-                      <AccordionTrigger className="hover:no-underline py-6 px-4">
-                        <div className="flex items-center text-left w-full pr-4">
-                          <div className={`flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center font-black text-white text-xl mr-6 shadow-inner ${
-                            qa.rating >= 8 ? 'bg-green-500' : qa.rating >= 5 ? 'bg-yellow-500' : 'bg-red-500'
-                          }`}>
-                            {qa.rating}
-                          </div>
-                          <p className="font-semibold text-lg text-gray-800 dark:text-gray-200 leading-snug">
-                            {qa.question}
-                          </p>
-                        </div>
-                      </AccordionTrigger>
-                      
-                      <AccordionContent className="px-8 pb-8 pt-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
-                        <div className="space-y-8 mt-2">
-                          <div>
-                            <span className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-3">Your Answer</span>
-                            <p className="text-gray-700 dark:text-gray-300 italic bg-white dark:bg-gray-900 p-6 rounded-xl border border-gray-200 dark:border-gray-800 leading-relaxed text-lg shadow-sm">"{qa.userAnswer}"</p>
-                          </div>
-                          
-                          <div>
-                            <span className="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block mb-3">Interviewer Feedback</span>
-                            <p className="text-gray-800 dark:text-gray-200 font-medium leading-relaxed text-lg bg-blue-50/30 dark:bg-blue-900/10 p-6 rounded-xl border border-blue-100 dark:border-blue-900/50">{qa.feedback}</p>
-                          </div>
-                          
-                          <div className="bg-green-50 dark:bg-green-900/20 p-6 rounded-xl border border-green-200 dark:border-green-900/40 shadow-sm mt-8">
-                            <span className="text-sm font-bold text-green-700 dark:text-green-400 uppercase tracking-wider block mb-3">
-                              The Ideal Answer
-                            </span>
-                            <p className="text-green-900 dark:text-green-100 leading-relaxed text-lg">{qa.idealAnswer}</p>
-                          </div>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              ) : (
-                <div className="text-center py-20">
-                  <p className="text-gray-500 text-lg">No specific question analysis found for this session.</p>
+                    
+                    <div className="bg-red-50/50 dark:bg-red-900/10 rounded-2xl p-8 border border-red-200 dark:border-red-900/30 shadow-sm">
+                      <h3 className="flex items-center text-xl font-bold text-red-800 dark:text-red-400 mb-6">
+                        Areas for Improvement
+                      </h3>
+                      <ul className="space-y-4">
+                        {report.weaknesses?.map((weakness, i) => (
+                          <li key={i} className="flex items-start text-red-900 dark:text-red-300 font-medium text-lg">
+                            <div className="w-2 h-2 rounded-full bg-red-500 mt-2.5 mr-4 shrink-0"></div>
+                            <span className="leading-relaxed">{weakness}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
                 </div>
               )}
-            </div>
-          )}
 
+              {/* TAB 2: Q&A ANALYSIS */}
+              {showQa && (
+                <div className="animate-in fade-in duration-500 pt-8">
+                  
+                  {isExporting && (
+                      <h2 className="text-3xl font-black text-gray-900 mb-6">Detailed Q&A Breakdown</h2>
+                  )}
+
+                  {report.questionAnalysis && report.questionAnalysis.length > 0 ? (
+                    <div className="w-full space-y-6">
+                      {report.questionAnalysis.map((qa, i) => (
+                        <div key={i} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-6 py-6 shadow-sm">
+                            <div className="flex items-start text-left w-full mb-6">
+                              <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center font-black text-white text-xl mr-5 shadow-inner mt-1 ${
+                                qa.rating >= 8 ? 'bg-green-500' : qa.rating >= 5 ? 'bg-yellow-500' : 'bg-red-500'
+                              }`}>
+                                {qa.rating}
+                              </div>
+                              <p className="font-semibold text-lg text-gray-800 dark:text-gray-200 leading-relaxed">
+                                Q: {qa.question}
+                              </p>
+                            </div>
+                            
+                            <div className="space-y-6 ml-17 pl-4 border-l-2 border-gray-100 dark:border-gray-700">
+                              <div>
+                                <span className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-2">Your Answer</span>
+                                <p className="text-gray-700 dark:text-gray-300 italic bg-gray-50 dark:bg-gray-900 p-5 rounded-xl border border-gray-200 dark:border-gray-800 leading-relaxed text-lg">"{qa.userAnswer}"</p>
+                              </div>
+                              
+                              <div>
+                                <span className="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block mb-2">Interviewer Feedback</span>
+                                <p className="text-gray-800 dark:text-gray-200 font-medium leading-relaxed text-lg bg-blue-50/30 dark:bg-blue-900/10 p-5 rounded-xl border border-blue-100 dark:border-blue-900/50">{qa.feedback}</p>
+                              </div>
+                              
+                              <div className="bg-green-50 dark:bg-green-900/20 p-5 rounded-xl border border-green-200 dark:border-green-900/40 mt-6">
+                                <span className="text-sm font-bold text-green-700 dark:text-green-400 uppercase tracking-wider block mb-2">
+                                  The Ideal Answer
+                                </span>
+                                <p className="text-green-900 dark:text-green-100 leading-relaxed text-lg">{qa.idealAnswer}</p>
+                              </div>
+                            </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-20">
+                      <p className="text-gray-500 text-lg">No specific question analysis found for this session.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

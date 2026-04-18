@@ -162,22 +162,25 @@ export const GenerateInterviewFeedback = async (conversationHistory, role) => {
     if (!transcriptText.trim()) return null;
 
     const prompt = `
-      You are an expert Technical Hiring Manager.
-      Review the following transcript of a mock interview for a ${role || 'candidate'}.
+      You are an expert technical interviewer. Review the following interview transcript for the role of ${role}.
+      Evaluate the candidate's performance and provide structured feedback.
       
       Format your response strictly as a JSON object with this exact structure:
       {
-        "overallScore": 85,
-        "generalFeedback": "A short paragraph summarizing their performance.",
-        "strengths": ["Strong understanding of React", "Good communication"],
-        "weaknesses": ["Hesitated on system design"],
+        "overallScore": 0-100,
+        "technicalScore": 0-100,
+        "communicationScore": 0-100,
+        "confidenceScore": 0-100,
+        "generalFeedback": "A 2-3 sentence executive summary of their performance.",
+        "strengths": ["Strength 1", "Strength 2"],
+        "weaknesses": ["Area to improve 1", "Area to improve 2"],
         "questionAnalysis": [
           {
             "question": "The interviewer's question",
             "userAnswer": "The candidate's answer",
-            "rating": 7,
+            "rating": 1-10,
             "feedback": "Specific feedback on this answer",
-            "idealAnswer": "What a perfect answer would have been"
+            "idealAnswer": "How they should have answered"
           }
         ]
       }

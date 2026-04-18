@@ -250,12 +250,12 @@ const endSession = useCallback(async () => {
             // If it's a Mock Interview, grade it
             if (RoomData?.Option === "Mock Interviews") {
                feedbackReport = await GenerateInterviewFeedback(conversation, RoomData?.role);
-               if (!feedbackReport) alert("❌ ERROR: The AI generated the report, but the JSON formatting was broken.");
+               if (!feedbackReport) alert("ERROR: The AI generated the report, but the JSON formatting was broken.");
             } 
             // If it's anything else (Topic Learning, Lecture), build a Study Guide!
             else {
                studyGuide = await GenerateStudyGuide(conversation, RoomData?.Topic);
-               if (!studyGuide) alert("❌ ERROR: Could not generate the study guide. Check the console.");
+               if (!studyGuide) alert("ERROR: Could not generate the study guide. Check the console.");
             }
         }
 

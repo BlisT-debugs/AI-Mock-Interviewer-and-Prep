@@ -308,6 +308,19 @@ const endSession = useCallback(async () => {
   if (!user || !RoomData) {
     return <div className="flex justify-center items-center h-screen text-blue-800 font-semibold text-xl">Loading Room...</div>;
   }
+  // AUTOSAVE
+  useEffect(() => {
+    // auto-save if there is actually a conversation happening
+    if (conversation.length > 0) {
+      const lastMsg = conversation[conversation.length - 1];
+      
+      // Only trigger the save when the AI FINISHES speaking. 
+      // We don't want to save the "..." thinking state.
+      if (lastMsg.role === 'assistant' && lastMsg.content !== '...') {
+        saveConversation(false); // false = not completed yet!
+      }
+    }
+  }, [conversation, saveConversation]);
 
   // --- UI LAYOUT LOGIC ---
   const isMockInterview = RoomData.Option === "Mock Interviews";

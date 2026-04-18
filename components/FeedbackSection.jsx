@@ -1,9 +1,9 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, Star, TrendingUp, AlertCircle } from 'lucide-react';
+import { MessageSquare, Star, TrendingUp, AlertCircle, LayoutDashboard, ListChecks } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
@@ -47,14 +47,12 @@ export default function Feedback() {
     improvement = latestScore - previousScore;
   }
 
-  // NEW: Prepare Data for the Chart (Reverse it so oldest is on the left, newest on the right)
   const chartData = mockInterviews.slice(0, 5).reverse().map((room, index) => {
     const date = new Date(room._creationTime);
     return {
         name: `Session ${index + 1}`,
         date: `${date.getMonth()+1}/${date.getDate()}`,
         Overall: room.feedbackReport.overallScore,
-        // Fallback to overallScore for old data that doesn't have the new metrics yet
         Technical: room.feedbackReport.technicalScore || room.feedbackReport.overallScore, 
     };
   });
@@ -75,7 +73,6 @@ export default function Feedback() {
       </CardHeader>
       <CardContent className="space-y-6 flex-1 min-h-0 flex flex-col">
         
-        {/* Empty State Alert */}
         {!hasAttended && (
           <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg p-4 flex-shrink-0">
             <div className="flex gap-3">
@@ -92,7 +89,6 @@ export default function Feedback() {
           </div>
         )}
 
-        {/* Stats Grid */}
         <div className="grid grid-cols-3 gap-4 flex-shrink-0">
           <div className="text-center p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg shadow-inner">
             <div className="flex items-center justify-center mb-2"><Star className="h-5 w-5 text-blue-600 dark:text-blue-400" /></div>
@@ -113,7 +109,6 @@ export default function Feedback() {
           </div>
         </div>
 
-        {/* NEW: The Performance Trend Chart */}
         {hasAttended && totalFeedback > 1 && (
           <div className="h-40 w-full bg-gray-50 dark:bg-gray-800/30 rounded-xl p-3 border border-gray-100 dark:border-gray-800 flex-shrink-0">
              <ResponsiveContainer width="100%" height="100%">
@@ -133,7 +128,6 @@ export default function Feedback() {
           </div>
         )}
 
-        {/* THE LIST: Recent Feedback */}
         <div className="space-y-3 flex-1 overflow-y-auto pr-2 min-h-0">
           <h4 className="text-sm font-semibold text-gray-900 dark:text-white sticky top-0 bg-white dark:bg-gray-900 pt-1 pb-2 z-10">Recent Feedback</h4>
           
@@ -188,9 +182,11 @@ export default function Feedback() {
 }
 
 // -------------------------------------------------------------
-// The Detailed Analysis Modal (Upgraded with Advanced Metrics)
+// The NEW Detailed Analysis Modal (Massive Box + Tabs)
 // -------------------------------------------------------------
 function FeedbackModal({ report, role }) {
+  const [activeTab, setActiveTab] = useState("overview");
+
   if (!report) return null;
 
   const scoreColor = report.overallScore >= 80 ? "text-green-600" : report.overallScore >= 60 ? "text-yellow-600" : "text-red-600";
@@ -204,133 +200,178 @@ function FeedbackModal({ report, role }) {
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border-0">
-        <DialogHeader className="pb-4 border-b border-gray-100 dark:border-gray-800">
-          <DialogTitle className="text-2xl font-bold text-gray-800 dark:text-white">
+      {/* THE FIX: max-w-6xl w-[95vw] h-[90vh] makes this nearly full screen! */}
+      <DialogContent className="sm:max-w-[90vw] md:max-w-6xl h-[90vh] p-0 overflow-hidden bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border-0 flex flex-col">        
+        {/* Sticky Header with Tabs */}
+        <div className="px-8 pt-8 pb-0 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
+          <DialogTitle className="text-3xl font-bold text-gray-800 dark:text-white mb-6">
             Performance Analysis: <span className="text-blue-600">{role || "Mock Interview"}</span>
           </DialogTitle>
-        </DialogHeader>
-
-        <div className="py-6 space-y-8">
           
-          {/* Top Section: Advanced Metrics Breakdown */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="col-span-1 bg-gray-50 dark:bg-gray-800 rounded-xl p-6 flex flex-col items-center justify-center border border-gray-100 dark:border-gray-700 shadow-inner">
-              <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Overall Score</span>
-              <div className={`text-5xl font-black ${scoreColor} mb-4`}>
-                {report.overallScore}<span className="text-2xl text-gray-400">/100</span>
-              </div>
-              <Progress value={report.overallScore} className="h-2 w-full bg-gray-200 dark:bg-gray-700" indicatorClassName={progressColor} />
-            </div>
-            
-            {/* The 3 New Metric Bars */}
-            <div className="col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-blue-50/50 dark:bg-blue-900/10 rounded-xl p-4 border border-blue-100 dark:border-blue-900 flex flex-col justify-center">
-                    <div className="flex justify-between items-center mb-2">
-                        <span className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase">Technical</span>
-                        <span className="text-sm font-bold text-blue-900 dark:text-blue-300">{report.technicalScore || report.overallScore}%</span>
-                    </div>
-                    <Progress value={report.technicalScore || report.overallScore} className="h-2 bg-blue-100 dark:bg-blue-950" indicatorClassName="bg-blue-600" />
+          <div className="flex gap-8">
+            <button 
+              onClick={() => setActiveTab("overview")}
+              className={`pb-4 px-2 text-base font-bold border-b-4 transition-colors flex items-center gap-2 ${
+                activeTab === "overview" 
+                  ? "border-blue-600 text-blue-600" 
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <LayoutDashboard className="w-5 h-5" />
+              Overview & Metrics
+            </button>
+            <button 
+              onClick={() => setActiveTab("qa")}
+              className={`pb-4 px-2 text-base font-bold border-b-4 transition-colors flex items-center gap-2 ${
+                activeTab === "qa" 
+                  ? "border-blue-600 text-blue-600" 
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <ListChecks className="w-5 h-5" />
+              Detailed Q&A Breakdown
+            </button>
+          </div>
+        </div>
+
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-y-auto p-8 bg-gray-50/50 dark:bg-gray-900/50">
+          
+          {/* TAB 1: OVERVIEW */}
+          {activeTab === "overview" && (
+            <div className="space-y-8 animate-in fade-in duration-500 max-w-5xl mx-auto">
+              
+              {/* Spaced out Top Section */}
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                {/* Big Overall Score Card */}
+                <div className="col-span-1 lg:col-span-1 bg-white dark:bg-gray-800 rounded-2xl p-8 flex flex-col items-center justify-center border border-gray-100 dark:border-gray-700 shadow-sm">
+                  <span className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Overall Score</span>
+                  <div className={`text-7xl font-black ${scoreColor} mb-6 tracking-tighter`}>
+                    {report.overallScore}<span className="text-3xl text-gray-300">/100</span>
+                  </div>
+                  <Progress value={report.overallScore} className="h-3 w-full bg-gray-100 dark:bg-gray-700" indicatorClassName={progressColor} />
                 </div>
                 
-                <div className="bg-purple-50/50 dark:bg-purple-900/10 rounded-xl p-4 border border-purple-100 dark:border-purple-900 flex flex-col justify-center">
-                    <div className="flex justify-between items-center mb-2">
-                        <span className="text-xs font-bold text-purple-700 dark:text-purple-400 uppercase">Communication</span>
-                        <span className="text-sm font-bold text-purple-900 dark:text-purple-300">{report.communicationScore || report.overallScore}%</span>
-                    </div>
-                    <Progress value={report.communicationScore || report.overallScore} className="h-2 bg-purple-100 dark:bg-purple-950" indicatorClassName="bg-purple-600" />
-                </div>
-
-                <div className="bg-orange-50/50 dark:bg-orange-900/10 rounded-xl p-4 border border-orange-100 dark:border-orange-900 flex flex-col justify-center">
-                    <div className="flex justify-between items-center mb-2">
-                        <span className="text-xs font-bold text-orange-700 dark:text-orange-400 uppercase">Confidence</span>
-                        <span className="text-sm font-bold text-orange-900 dark:text-orange-300">{report.confidenceScore || report.overallScore}%</span>
-                    </div>
-                    <Progress value={report.confidenceScore || report.overallScore} className="h-2 bg-orange-100 dark:bg-orange-950" indicatorClassName="bg-orange-500" />
-                </div>
-            </div>
-          </div>
-
-          <div className="bg-blue-50/30 dark:bg-blue-900/10 rounded-xl p-6 border border-blue-50 dark:border-blue-900">
-            <h3 className="text-lg font-bold text-blue-900 dark:text-blue-300 mb-2">Executive Summary</h3>
-            <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-base">
-              {report.generalFeedback}
-            </p>
-          </div>
-
-          {/* Middle Section: Strengths & Weaknesses */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-green-50/50 dark:bg-green-900/10 rounded-xl p-6 border border-green-100 dark:border-green-900">
-              <h3 className="flex items-center text-lg font-bold text-green-800 dark:text-green-400 mb-4">
-                Key Strengths
-              </h3>
-              <ul className="space-y-3">
-                {report.strengths?.map((strength, i) => (
-                  <li key={i} className="flex items-start text-green-700 dark:text-green-300">
-                    <span className="mr-2 font-bold">•</span> <span>{strength}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            
-            <div className="bg-red-50/50 dark:bg-red-900/10 rounded-xl p-6 border border-red-100 dark:border-red-900">
-              <h3 className="flex items-center text-lg font-bold text-red-800 dark:text-red-400 mb-4">
-                Areas for Improvement
-              </h3>
-              <ul className="space-y-3">
-                {report.weaknesses?.map((weakness, i) => (
-                  <li key={i} className="flex items-start text-red-700 dark:text-red-300">
-                    <span className="mr-2 font-bold">•</span> <span>{weakness}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          {/* Bottom Section: Question Breakdown */}
-          {report.questionAnalysis && report.questionAnalysis.length > 0 && (
-            <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
-              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-6">Detailed Q&A Analysis</h3>
-              
-              <Accordion type="single" collapsible className="w-full space-y-3">
-                {report.questionAnalysis.map((qa, i) => (
-                  <AccordionItem value={`item-${i}`} key={i} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2 shadow-sm">
-                    <AccordionTrigger className="hover:no-underline py-4 px-2">
-                      <div className="flex items-center text-left w-full pr-4">
-                        <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-white mr-4 ${
-                          qa.rating >= 8 ? 'bg-green-500' : qa.rating >= 5 ? 'bg-yellow-500' : 'bg-red-500'
-                        }`}>
-                          {qa.rating}
+                {/* 3 Metric Bars with vast breathing room */}
+                <div className="col-span-1 lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl p-8 border border-blue-100 dark:border-blue-900/50 flex flex-col justify-center">
+                        <div className="flex justify-between items-end mb-4">
+                            <span className="text-sm font-bold text-blue-800 dark:text-blue-400 uppercase tracking-wide">Technical</span>
+                            <span className="text-2xl font-black text-blue-600 dark:text-blue-300">{report.technicalScore || report.overallScore}%</span>
                         </div>
-                        <p className="font-semibold text-gray-800 dark:text-gray-200">
-                          Q: {qa.question}
-                        </p>
-                      </div>
-                    </AccordionTrigger>
+                        <Progress value={report.technicalScore || report.overallScore} className="h-3 bg-blue-100 dark:bg-blue-950" indicatorClassName="bg-blue-500" />
+                    </div>
                     
-                    <AccordionContent className="px-4 pb-4 pt-2 border-t border-gray-100 dark:border-gray-700">
-                      <div className="space-y-5 mt-4">
-                        <div>
-                          <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Your Answer</span>
-                          <p className="mt-1 text-gray-700 dark:text-gray-300 italic bg-gray-50 dark:bg-gray-900 p-3 rounded-md border border-gray-100 dark:border-gray-800">"{qa.userAnswer}"</p>
+                    <div className="bg-purple-50/50 dark:bg-purple-900/10 rounded-2xl p-8 border border-purple-100 dark:border-purple-900/50 flex flex-col justify-center">
+                        <div className="flex justify-between items-end mb-4">
+                            <span className="text-sm font-bold text-purple-800 dark:text-purple-400 uppercase tracking-wide">Communication</span>
+                            <span className="text-2xl font-black text-purple-600 dark:text-purple-300">{report.communicationScore || report.overallScore}%</span>
                         </div>
-                        
-                        <div>
-                          <span className="text-xs font-bold text-blue-500 uppercase tracking-wider">Interviewer Feedback</span>
-                          <p className="mt-1 text-gray-800 dark:text-gray-200 font-medium">{qa.feedback}</p>
+                        <Progress value={report.communicationScore || report.overallScore} className="h-3 bg-purple-100 dark:bg-purple-950" indicatorClassName="bg-purple-500" />
+                    </div>
+
+                    <div className="bg-orange-50/50 dark:bg-orange-900/10 rounded-2xl p-8 border border-orange-100 dark:border-orange-900/50 flex flex-col justify-center">
+                        <div className="flex justify-between items-end mb-4">
+                            <span className="text-sm font-bold text-orange-800 dark:text-orange-400 uppercase tracking-wide">Confidence</span>
+                            <span className="text-2xl font-black text-orange-600 dark:text-orange-300">{report.confidenceScore || report.overallScore}%</span>
                         </div>
-                        
-                        <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-md border border-green-100 dark:border-green-900/30">
-                          <span className="text-xs font-bold text-green-600 dark:text-green-400 uppercase tracking-wider block mb-1">
-                            The Ideal Answer
-                          </span>
-                          <p className="text-green-900 dark:text-green-100">{qa.idealAnswer}</p>
+                        <Progress value={report.confidenceScore || report.overallScore} className="h-3 bg-orange-100 dark:bg-orange-950" indicatorClassName="bg-orange-500" />
+                    </div>
+                </div>
+              </div>
+
+              {/* Summary */}
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-100 dark:border-gray-700 shadow-sm">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                  <MessageSquare className="w-6 h-6 text-blue-500" />
+                  Executive Summary
+                </h3>
+                <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg">
+                  {report.generalFeedback}
+                </p>
+              </div>
+
+              {/* Strengths & Weaknesses */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="bg-green-50/50 dark:bg-green-900/10 rounded-2xl p-8 border border-green-200 dark:border-green-900/30 shadow-sm">
+                  <h3 className="flex items-center text-xl font-bold text-green-800 dark:text-green-400 mb-6">
+                    Top Strengths
+                  </h3>
+                  <ul className="space-y-4">
+                    {report.strengths?.map((strength, i) => (
+                      <li key={i} className="flex items-start text-green-900 dark:text-green-300 font-medium text-lg">
+                        <div className="w-2 h-2 rounded-full bg-green-500 mt-2.5 mr-4 shrink-0"></div>
+                        <span className="leading-relaxed">{strength}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                
+                <div className="bg-red-50/50 dark:bg-red-900/10 rounded-2xl p-8 border border-red-200 dark:border-red-900/30 shadow-sm">
+                  <h3 className="flex items-center text-xl font-bold text-red-800 dark:text-red-400 mb-6">
+                    Areas for Improvement
+                  </h3>
+                  <ul className="space-y-4">
+                    {report.weaknesses?.map((weakness, i) => (
+                      <li key={i} className="flex items-start text-red-900 dark:text-red-300 font-medium text-lg">
+                        <div className="w-2 h-2 rounded-full bg-red-500 mt-2.5 mr-4 shrink-0"></div>
+                        <span className="leading-relaxed">{weakness}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: Q&A ANALYSIS */}
+          {activeTab === "qa" && (
+            <div className="animate-in fade-in duration-500 max-w-5xl mx-auto">
+              {report.questionAnalysis && report.questionAnalysis.length > 0 ? (
+                <Accordion type="single" collapsible className="w-full space-y-6">
+                  {report.questionAnalysis.map((qa, i) => (
+                    <AccordionItem value={`item-${i}`} key={i} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-4 shadow-sm overflow-hidden">
+                      <AccordionTrigger className="hover:no-underline py-6 px-4">
+                        <div className="flex items-center text-left w-full pr-4">
+                          <div className={`flex-shrink-0 w-14 h-14 rounded-full flex items-center justify-center font-black text-white text-xl mr-6 shadow-inner ${
+                            qa.rating >= 8 ? 'bg-green-500' : qa.rating >= 5 ? 'bg-yellow-500' : 'bg-red-500'
+                          }`}>
+                            {qa.rating}
+                          </div>
+                          <p className="font-semibold text-lg text-gray-800 dark:text-gray-200 leading-snug">
+                            {qa.question}
+                          </p>
                         </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
+                      </AccordionTrigger>
+                      
+                      <AccordionContent className="px-8 pb-8 pt-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+                        <div className="space-y-8 mt-2">
+                          <div>
+                            <span className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-3">Your Answer</span>
+                            <p className="text-gray-700 dark:text-gray-300 italic bg-white dark:bg-gray-900 p-6 rounded-xl border border-gray-200 dark:border-gray-800 leading-relaxed text-lg shadow-sm">"{qa.userAnswer}"</p>
+                          </div>
+                          
+                          <div>
+                            <span className="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block mb-3">Interviewer Feedback</span>
+                            <p className="text-gray-800 dark:text-gray-200 font-medium leading-relaxed text-lg bg-blue-50/30 dark:bg-blue-900/10 p-6 rounded-xl border border-blue-100 dark:border-blue-900/50">{qa.feedback}</p>
+                          </div>
+                          
+                          <div className="bg-green-50 dark:bg-green-900/20 p-6 rounded-xl border border-green-200 dark:border-green-900/40 shadow-sm mt-8">
+                            <span className="text-sm font-bold text-green-700 dark:text-green-400 uppercase tracking-wider block mb-3">
+                              The Ideal Answer
+                            </span>
+                            <p className="text-green-900 dark:text-green-100 leading-relaxed text-lg">{qa.idealAnswer}</p>
+                          </div>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              ) : (
+                <div className="text-center py-20">
+                  <p className="text-gray-500 text-lg">No specific question analysis found for this session.</p>
+                </div>
+              )}
             </div>
           )}
 
